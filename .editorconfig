@@ -1,0 +1,8 @@
+root = true
+
+[format]
+indent_style = "space"
+indent_size = 4
+
+[format.python]
+line-length = 100

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/kilo.json",
+  "default_agent": "code",
+  "model": "kilo/poolside/laguna-s-2.1:free",
+  "instructions": ["AGENTS.md"]
+}
