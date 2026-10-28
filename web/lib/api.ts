@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 export interface ApiResponse<T> {
   data: T
@@ -18,6 +18,13 @@ class ApiClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL
+  }
+
+  private buildURL(endpoint: string): string {
+    if (this.baseURL) {
+      return `${this.baseURL}/api/v1${endpoint}`
+    }
+    return `/api/v1${endpoint}`
   }
 
   setToken(token: string | null) {
@@ -57,7 +64,7 @@ class ApiClient {
           ...options,
           headers: { ...this.getHeaders(), ...options.headers },
         }
-        const retryResponse = await fetch(`${this.baseURL}/api/v1${endpoint}`, retryOptions)
+        const retryResponse = await fetch(this.buildURL(endpoint), retryOptions)
         if (!retryResponse.ok) {
           const error = await retryResponse.json().catch(() => ({ detail: retryResponse.statusText }))
           throw this.createError(retryResponse.status, error.detail || retryResponse.statusText)
@@ -91,7 +98,7 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}/api/v1/auth/refresh`, {
+      const response = await fetch(this.buildURL("/auth/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -125,8 +132,7 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseURL}/api/v1${endpoint}`
-    const response = await fetch(url, {
+    const response = await fetch(this.buildURL(endpoint), {
       ...options,
       headers: this.getHeaders(options.headers),
     })

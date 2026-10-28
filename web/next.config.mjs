@@ -2,7 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  output: "standalone",
+  output: "export",
+  trailingSlash: true,
+  images: {
+    unoptimized: true,
+  },
   experimental: {
     turbo: {
       rules: {},

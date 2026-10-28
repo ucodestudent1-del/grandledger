@@ -85,6 +85,22 @@ ruff check src tests
 mypy src
 ```
 
+## Production Deployment
+
+The frontend and API are bundled into a single Docker image. The Next.js frontend is
+built as a static export during Docker build and served directly from FastAPI at `/`.
+
+```bash
+# Build and run the unified image
+docker build -t grandledger .
+docker run -p 8000:8000 --env-file .env grandledger
+
+# Or with docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Set `FRONTEND_URL` to the deployed application URL (e.g. `https://grandledger.up.railway.app`).
+
 ## License
 
 MIT

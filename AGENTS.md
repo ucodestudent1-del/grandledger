@@ -34,7 +34,7 @@ GrandLedger is a bookkeeping SaaS for freelancers, small businesses, and account
 
 | Layer | Choice | Why |
 |---|---|---|
-| **Frontend** | Next.js 15 App Router, React 19, TypeScript | SSR + App Router, server components, Vercel-ready. |
+| **Frontend** | Next.js 15 App Router, React 19, TypeScript, static export (`output: "export"`) | SSR-free SPA, served as static files from FastAPI. |
 | **Design** | Tailwind CSS v4, shadcn/ui | Rapid, accessible, themeable. |
 | | TanStack Table / AG Grid | Accountant-grade data grids. |
 | | TanStack Query | Cache + background sync of ledger data. |
@@ -45,9 +45,9 @@ GrandLedger is a bookkeeping SaaS for freelancers, small businesses, and account
 | **Auth** | JWT (HS256) access + rotating refresh, bcrypt, httpOnly + CSRF double-submit | Industry standard, accountant-safe. |
 | **Money** | `decimal.Decimal` in Python, `numeric(20,4)` in DB — never floats | Avoid floating-point drift. |
 | **PDF** | WeasyPrint (server) | Invoice/statement PDFs from HTML templates. |
-| **Hosting** | AWS or GCP, Terraform IaC, GitHub Actions CI | SOC 2 Type II path. |
-| **Frontend deploy** | Vercel | Fast iteration. |
-| | Backend deploy | Railway / Fly.io (MVP) → ECS / Cloud Run (scale). |
+| **Hosting** | Railway (MVP) → AWS/GCP, Terraform IaC, GitHub Actions CI | SOC 2 Type II path. |
+| **Frontend deploy** | Built into Docker image, served by FastAPI | Single-deployment simplification for MVP. |
+| | Backend deploy | Railway (MVP) → ECS / Cloud Run (scale). |
 
 ### 2.1 Key Architectural Decisions
 
@@ -382,14 +382,14 @@ Project commands live in `.kilo/command/`. Available commands:
 
 | Command | Description |
 |---|---|
-| `/dev` | Start API + frontend in dev mode (Docker services already running). |
+| `/dev` | Start API + frontend dev server (Docker services already running). |
 | `/test` | Run all tests (unit + integration). |
 | `/lint` | Run ruff, mypy, eslint, tsc. |
 | `/typecheck` | Run mypy + tsc only. |
 | `/db-up` | Start Postgres + Redis via Docker Compose. |
 | `/db-migrate` | Run `alembic upgrade head`. |
 | `/db-seed` | Seed demo data. |
-| `/build` | Build Docker images for API + frontend. |
+| `/build` | Build Docker image (frontend + API in single image). |
 
 Setup scripts for Agent Manager are in `.kilo/setup-script` (macOS/Linux) and `.kilo/setup-script.ps1` (Windows). Run scripts are in `.kilo/run-script` and `.kilo/run-script.ps1`.
 

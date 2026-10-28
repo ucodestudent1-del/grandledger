@@ -1,14 +1,19 @@
 # Build
 
-Build Docker images for API and frontend.
+Build the Docker image (multi-stage: builds the Next.js frontend and the Python API in one image).
+
+```bash
+docker build -t grandledger .
+```
+
+For local development compose:
 
 ```bash
 docker compose build
 ```
 
-For production builds:
+For production:
 
 ```bash
-docker build -t grandledger-api .
-docker build -t grandledger-web ./web
+docker build -t grandledger-prod .
 ```

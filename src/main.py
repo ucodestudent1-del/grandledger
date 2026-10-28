@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlmodel import Session
@@ -122,18 +123,53 @@ app.include_router(api_router)
 
 @app.get("/", include_in_schema=False)
 def root() -> Any:
-    if settings.FRONTEND_URL != "http://localhost:3000" and settings.ENVIRONMENT != "development":
-        return RedirectResponse(url=settings.FRONTEND_URL)
-    from fastapi.responses import HTMLResponse
-
-    return HTMLResponse(
-        content=f"""<!DOCTYPE html>
+    if settings.DEBUG:
+        return HTMLResponse(
+            content=f"""<!DOCTYPE html>
 <html>
 <head><title>GrandLedger API</title></head>
 <body>
 <h1>GrandLedger API</h1>
 <p>API is running. Documentation: <a href="/docs">/docs</a></p>
-<p>Frontend: <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
+<p>Frontend dev server: <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
+</body>
+</html>"""
+        )
+
+    # Production: serve the statically exported frontend index.html
+    frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+
+    return HTMLResponse(
+        content="""<!DOCTYPE html>
+<html>
+<head><title>GrandLedger API</title></head>
+<body>
+<h1>GrandLedger API</h1>
+<p>API is running. Documentation: <a href="/docs">/docs</a></p>
 </body>
 </html>"""
     )
+
+
+@app.get("/{path:path}", include_in_schema=False)
+def spa_fallback(path: str) -> Any:
+    """Serve frontend assets for client-side routes in production."""
+    if settings.DEBUG:
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{path}")
+
+    frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
+    file_path = frontend_dist / path
+
+    # Serve the file if it exists (static assets, _next/*, etc.)
+    if file_path.is_file():
+        return FileResponse(file_path)
+
+    # For client-side routes, serve the root index.html (SPA fallback)
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+
+    return RedirectResponse(url=settings.FRONTEND_URL)

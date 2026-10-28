@@ -1,6 +1,6 @@
 # Dev Mode
 
-Start the API and frontend in development mode.
+Start the API and frontend in development mode (separate processes).
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ docker compose up -d postgres redis
 # Start API (from project root)
 uvicorn src.main:app --reload --port 8000
 
-# Start frontend (from web directory)
+# Start frontend dev server (from web directory)
 cd web && npm run dev
 ```
 
@@ -25,4 +25,8 @@ cd web && npm run dev
 
 - API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
-- Frontend: http://localhost:3000
+- Frontend (dev server): http://localhost:3000
+
+In development, the frontend dev server proxies API requests to the FastAPI backend via `NEXT_PUBLIC_API_URL`.
+
+In production, the frontend is built into the Docker image and served directly from the API service at `/`.
