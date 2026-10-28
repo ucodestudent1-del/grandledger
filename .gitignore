@@ -11,11 +11,14 @@ venv/
 .ruff_cache/
 .pytest_cache/
 
-# Node / Fronted
+# Node / Frontend
 web/node_modules/
 web/.next/
 web/.env.local
 web/out/
+web/package-lock.json
+web/pnpm-lock.yaml
+web/tsconfig.tsbuildinfo
 
 # IDE
 .idea/

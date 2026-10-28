@@ -44,10 +44,22 @@ class ApiClient {
     return null
   }
 
-  private getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
-    const headers: HeadersInit = {
+  private getHeaders(customHeaders?: HeadersInit): Record<string, string> {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...customHeaders,
+    }
+    if (customHeaders) {
+      if (customHeaders instanceof Headers) {
+        customHeaders.forEach((value, key) => {
+          headers[key] = value
+        })
+      } else if (Array.isArray(customHeaders)) {
+        for (const [key, value] of customHeaders) {
+          headers[key] = value
+        }
+      } else {
+        Object.assign(headers, customHeaders)
+      }
     }
     const token = this.getToken()
     if (token) {

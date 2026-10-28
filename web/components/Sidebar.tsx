@@ -8,7 +8,6 @@ import {
   Users,
   Receipt,
   ShoppingCart,
-  FileBill,
   Banknote,
   RefreshCw,
   BarChart3,
@@ -31,7 +30,7 @@ const navigation = [
   {
     name: "Bills",
     href: "/app/ap/bills",
-    icon: FileBill,
+    icon: FileText,
   },
   { name: "Bank Accounts", href: "/app/bank/accounts", icon: Banknote },
   {

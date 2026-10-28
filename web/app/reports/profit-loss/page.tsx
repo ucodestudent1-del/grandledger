@@ -6,7 +6,7 @@ import { formatCurrency, useAuth } from "@/app/hooks/useAuth"
 import { format, startOfYear, endOfYear } from "date-fns"
 import { Loader2 } from "lucide-react"
 
-interface P&LAccount {
+interface PnLAccount {
   account: string
   amount: string
   type: string
@@ -15,8 +15,8 @@ interface P&LAccount {
 interface PnLReport {
   report: string
   period: { start_date: string; end_date: string }
-  revenue: P&LAccount[]
-  expenses: P&LAccount[]
+  revenue: PnLAccount[]
+  expenses: PnLAccount[]
   net_income: string
 }
 
