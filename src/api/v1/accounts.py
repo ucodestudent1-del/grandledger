@@ -1,0 +1,116 @@
+"""Accounts (Chart of Accounts) endpoints."""
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlmodel import Session, select
+
+from src.models import Account
+from src.schemas import AccountCreate, AccountRead
+
+router = APIRouter(tags=["accounts"])
+
+
+def get_session() -> Session:
+    import src.database as db_module
+    return Session(db_module.engine)
+
+
+def get_company_id(request: Request) -> UUID:
+    from src.core.middleware import get_company_id as _gci
+
+    return _gci(request)
+
+
+@router.post("/accounts", response_model=AccountRead)
+def create_account(
+    payload: AccountCreate,
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+) -> AccountRead:
+    if payload.parent_id:
+        parent = session.get(Account, payload.parent_id)
+        if not parent or parent.company_id != company_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parent account not found in this company",
+            )
+
+    existing = session.exec(
+        select(Account).where(
+            Account.company_id == company_id,
+            Account.code == payload.code,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account code already exists in this company",
+        )
+
+    account = Account(company_id=company_id, **payload.model_dump(exclude={"company_id", "is_system"}))
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    return account
+
+
+@router.get("/accounts", response_model=list[AccountRead])
+def list_accounts(
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+    account_type: str | None = None,
+) -> list[AccountRead]:
+    stmt = select(Account).where(Account.company_id == company_id)
+    if account_type:
+        stmt = stmt.where(Account.type == account_type)
+    accounts = session.exec(stmt).all()
+    return accounts
+
+
+@router.get("/accounts/{account_id}", response_model=AccountRead)
+def get_account(
+    account_id: UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+) -> AccountRead:
+    account = session.get(Account, account_id)
+    if not account or account.company_id != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+    return account
+
+
+@router.patch("/accounts/{account_id}", response_model=AccountRead)
+def update_account(
+    account_id: UUID,
+    payload: AccountCreate,
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+) -> AccountRead:
+    account = session.get(Account, account_id)
+    if not account or account.company_id != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+    if account.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System accounts cannot be modified",
+        )
+
+    account_data = payload.model_dump(exclude_unset=True, exclude={"company_id", "is_system"})
+    for field, value in account_data.items():
+        setattr(account, field, value)
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    return account

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Setup script for GrandLedger development
+set -e
+
+echo "Setting up GrandLedger development environment..."
+
+# Copy env if not exists
+if [ ! -f .env ]; then
+    cp .env.example .env
+    echo "Created .env from .env.example"
+fi
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+pip install -r requirements.txt
+
+# Install frontend dependencies
+echo "Installing frontend dependencies..."
+cd web
+npm install
+cd ..
+
+# Run database migrations
+echo "Running database migrations..."
+alembic upgrade head
+
+echo "Setup complete!"
+echo ""
+echo "To start the dev servers:"
+echo "  API:    uvicorn src.main:app --reload --port 8000"
+echo "  Web:    cd web && npm run dev"

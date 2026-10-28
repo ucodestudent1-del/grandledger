@@ -1,0 +1,4 @@
+[
+  { "path": "./src/main.py", "ecosystem": "python" },
+  { "path": "./web", "ecosystem": "node" }
+]

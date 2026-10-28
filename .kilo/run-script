@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Run script for GrandLedger development
+set -e
+
+# Start API in background
+echo "Starting API server..."
+uvicorn src.main:app --reload --port 8000 &
+API_PID=$!
+
+# Start frontend
+echo "Starting frontend..."
+cd web
+npm run dev &
+WEB_PID=$!
+
+echo "API:   http://localhost:8000"
+echo "Web:   http://localhost:3000"
+echo "Docs:  http://localhost:8000/docs"
+
+# Wait for both processes
+wait $API_PID
+wait $WEB_PID
