@@ -167,6 +167,11 @@ def spa_fallback(path: str) -> Any:
     if file_path.is_file():
         return FileResponse(file_path)
 
+    # With trailingSlash, routes are dirs: try /login/index.html
+    index_candidate = frontend_dist / path / "index.html"
+    if index_candidate.is_file():
+        return FileResponse(index_candidate)
+
     # For client-side routes, serve the root index.html (SPA fallback)
     index_path = frontend_dist / "index.html"
     if index_path.exists():
