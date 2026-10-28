@@ -122,4 +122,18 @@ app.include_router(api_router)
 
 @app.get("/", include_in_schema=False)
 def root() -> Any:
-    return RedirectResponse(url=settings.FRONTEND_URL)
+    if settings.FRONTEND_URL != "http://localhost:3000" and settings.ENVIRONMENT != "development":
+        return RedirectResponse(url=settings.FRONTEND_URL)
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(
+        content=f"""<!DOCTYPE html>
+<html>
+<head><title>GrandLedger API</title></head>
+<body>
+<h1>GrandLedger API</h1>
+<p>API is running. Documentation: <a href="/docs">/docs</a></p>
+<p>Frontend: <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
+</body>
+</html>"""
+    )
