@@ -24,7 +24,7 @@ export default function LoginPage() {
         password,
       })
       login(res.access_token, res.refresh_token)
-      router.push("/app")
+      router.push("/")
     } catch (err: any) {
       setError(err.detail || err.message || "Login failed")
     } finally {

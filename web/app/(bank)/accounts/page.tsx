@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
@@ -54,7 +54,7 @@ export default function BankAccountsPage() {
                 <td className="p-3 text-right">
                   <button
                     className="text-sm text-primary hover:underline"
-                    onClick={() => (window.location.href = `/app/bank/accounts/${acct.id}`)}
+                    onClick={() => (window.location.href = `/bank/accounts/${acct.id}`)}
                   >
                     Manage
                   </button>
@@ -67,3 +67,5 @@ export default function BankAccountsPage() {
     </div>
   )
 }
+
+

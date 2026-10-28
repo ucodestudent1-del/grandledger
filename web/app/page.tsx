@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -91,19 +91,19 @@ export default function DashboardPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Link href="/app/accounting/journals" className="block p-4 border rounded-lg hover:bg-muted">
+        <Link href="/accounting/journals" className="block p-4 border rounded-lg hover:bg-muted">
           <div className="text-2xl font-bold">{recentEntries.length}</div>
           <div className="text-sm text-muted-foreground">Recent Journal Entries</div>
         </Link>
-        <Link href="/app/ar/invoices" className="block p-4 border rounded-lg hover:bg-muted">
+        <Link href="/ar/invoices" className="block p-4 border rounded-lg hover:bg-muted">
           <div className="text-2xl font-bold">{recentInvoices.length}</div>
           <div className="text-sm text-muted-foreground">Recent Invoices</div>
         </Link>
-        <Link href="/app/reports/profit-loss" className="block p-4 border rounded-lg hover:bg-muted">
+        <Link href="/reports/profit-loss" className="block p-4 border rounded-lg hover:bg-muted">
           <div className="text-2xl font-bold text-green-600">{formatCurrency(netIncome.toString())}</div>
           <div className="text-sm text-muted-foreground">Net Income (MTD)</div>
         </Link>
-        <Link href="/app/reports/balance-sheet" className="block p-4 border rounded-lg hover:bg-muted">
+        <Link href="/reports/balance-sheet" className="block p-4 border rounded-lg hover:bg-muted">
           <div className="text-2xl font-bold">{formatCurrency(assets.toString())}</div>
           <div className="text-sm text-muted-foreground">Total Assets</div>
         </Link>
@@ -183,3 +183,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+

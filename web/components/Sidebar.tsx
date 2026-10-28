@@ -16,35 +16,35 @@ import {
 } from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/app", icon: LayoutDashboard },
-  { name: "Chart of Accounts", href: "/app/accounting/chart-of-accounts", icon: BookOpen },
-  { name: "Journals", href: "/app/accounting/journals", icon: FileText },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Chart of Accounts", href: "/accounting/chart-of-accounts", icon: BookOpen },
+  { name: "Journals", href: "/accounting/journals", icon: FileText },
   {
     name: "Customers",
-    href: "/app/ar/customers",
+    href: "/ar/customers",
     icon: Users,
     section: "ar",
   },
-  { name: "Invoices", href: "/app/ar/invoices", icon: Receipt },
-  { name: "Vendors", href: "/app/ap/vendors", icon: ShoppingCart },
+  { name: "Invoices", href: "/ar/invoices", icon: Receipt },
+  { name: "Vendors", href: "/ap/vendors", icon: ShoppingCart },
   {
     name: "Bills",
-    href: "/app/ap/bills",
+    href: "/ap/bills",
     icon: FileText,
   },
-  { name: "Bank Accounts", href: "/app/bank/accounts", icon: Banknote },
+  { name: "Bank Accounts", href: "/bank/accounts", icon: Banknote },
   {
     name: "Reconciliation",
-    href: "/app/bank/reconcile",
+    href: "/bank/reconcile",
     icon: RefreshCw,
   },
   {
     name: "Reports",
-    href: "/app/reports/profit-loss",
+    href: "/reports/profit-loss",
     icon: BarChart3,
   },
-  { name: "Audit Log", href: "/app/audit", icon: Shield },
-  { name: "Settings", href: "/app/settings/company", icon: Settings },
+  { name: "Audit Log", href: "/audit", icon: Shield },
+  { name: "Settings", href: "/settings/company", icon: Settings },
 ]
 
 export default function Sidebar() {

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
@@ -29,7 +29,7 @@ export default function InvoicesPage() {
         <h1 className="text-2xl font-bold">Invoices</h1>
         <button
           className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2"
-          onClick={() => (window.location.href = "/app/ar/invoices/new")}
+          onClick={() => (window.location.href = "/ar/invoices/new")}
         >
           <Plus className="h-4 w-4" />
           New Invoice
@@ -55,7 +55,7 @@ export default function InvoicesPage() {
                 <td className="p-3 text-right">
                   <button
                     className="text-sm text-primary hover:underline"
-                    onClick={() => (window.location.href = `/app/ar/invoices/${inv.id}`)}
+                    onClick={() => (window.location.href = `/ar/invoices/${inv.id}`)}
                   >
                     View
                   </button>
@@ -68,3 +68,5 @@ export default function InvoicesPage() {
     </div>
   )
 }
+
+

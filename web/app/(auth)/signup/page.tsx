@@ -27,7 +27,7 @@ export default function SignupPage() {
     try {
       const res = await api.post<{ access_token: string; refresh_token: string }>("/auth/signup", formData)
       login(res.access_token, res.refresh_token)
-      router.push("/app")
+      router.push("/")
     } catch (err: any) {
       setError(err.detail || err.message || "Signup failed")
     } finally {
