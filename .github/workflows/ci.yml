@@ -88,7 +88,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./web
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Lint
         working-directory: ./web
@@ -100,7 +100,7 @@ jobs:
 
       - name: Run tests
         working-directory: ./web
-        run: npm test -- -- --ci --coverage
+        run: npm test -- --ci --coverage
 
   build-docker:
     needs: [lint-and-test-backend, lint-and-test-frontend]
@@ -118,20 +118,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push API
+      - name: Build and push unified image (frontend + API)
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/grandledger-api:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./web
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/grandledger-web:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/grandledger:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

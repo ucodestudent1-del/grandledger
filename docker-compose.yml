@@ -41,13 +41,18 @@ services:
         condition: service_started
 
   web:
-    build: ./web
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     container_name: grandledger-web
     ports:
       - "3000:3000"
     env_file: .env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     volumes:
       - ./web:/app
+    command: npm run dev
     depends_on:
       - api
 
