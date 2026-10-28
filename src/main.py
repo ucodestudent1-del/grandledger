@@ -122,4 +122,4 @@ app.include_router(api_router)
 
 @app.get("/", include_in_schema=False)
 def root() -> Any:
-    return RedirectResponse(url="/docs")
+    return RedirectResponse(url=settings.FRONTEND_URL)

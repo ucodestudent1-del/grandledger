@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
     ALLOWED_ORIGINS: str = ""
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # Security
     PASSWORD_MIN_LENGTH: int = 8
