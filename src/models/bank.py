@@ -1,5 +1,5 @@
 """Bank account and bank transaction models."""
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -9,6 +9,10 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from src.models.company import Company
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class BankAccountStatus(str):
@@ -28,8 +32,8 @@ class BankAccount(SQLModel, table=True):
     starting_balance: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=4)
     currency: str = Field(default="USD", max_length=3)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="bank_accounts")  # type: ignore[call-overload]
     transactions: list["BankTransaction"] = Relationship(  # type: ignore[call-overload]
@@ -48,7 +52,7 @@ class BankTransaction(SQLModel, table=True):
     description: str = Field(max_length=500)
     amount: Decimal = Field(max_digits=20, decimal_places=4)
     balance: Decimal | None = Field(default=None, max_digits=20, decimal_places=4)
-    imported_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    imported_at: datetime = Field(default_factory=_utcnow, nullable=False)
     matched: bool = Field(default=False)
     journal_entry_id: UUID | None = Field(default=None, sa_column=Column(Uuid(), ForeignKey("journal_entries.id")))
     status: str = Field(default="pending", max_length=20)

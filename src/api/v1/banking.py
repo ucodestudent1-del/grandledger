@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlmodel import Session, select
 
+from src.core.middleware import get_company_id
+from src.core.pagination import get_page_params, paginate_query
 from src.models import BankAccount, BankTransaction
 from src.schemas import BankAccountCreate, BankAccountRead, BankTransactionRead
 
@@ -19,12 +21,6 @@ router = APIRouter(tags=["bank"])
 def get_session() -> Session:
     import src.database as db_module
     return Session(db_module.engine)
-
-
-def get_company_id(request: Request) -> UUID:
-    from src.core.middleware import get_company_id as _gci
-
-    return _gci(request)
 
 
 @router.post("/bank/accounts", response_model=BankAccountRead)
@@ -138,7 +134,10 @@ def list_transactions(
     bank_account_id: UUID | None = None,
     matched: bool | None = None,
     status: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[BankTransactionRead]:
+    page_val, page_size_val = get_page_params(page, page_size)
     stmt = select(BankTransaction).where(BankTransaction.company_id == company_id)
     if bank_account_id:
         stmt = stmt.where(BankTransaction.bank_account_id == bank_account_id)
@@ -146,7 +145,8 @@ def list_transactions(
         stmt = stmt.where(BankTransaction.matched == matched)
     if status:
         stmt = stmt.where(BankTransaction.status == status)
-    transactions = session.exec(stmt).all()
+    items, _, _ = paginate_query(stmt, page_val, page_size_val)
+    transactions = session.exec(items).all()
     return transactions
 
 
@@ -198,4 +198,4 @@ def _parse_date(date_str: str):
             return datetime.strptime(date_str.strip(), fmt).date()
         except ValueError:
             continue
-    return datetime.utcnow().date()
+    return datetime.now(UTC).date()

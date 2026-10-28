@@ -10,7 +10,7 @@ class TestAuthSignup:
             json={
                 "email": f"{unique}@test.com",
                 "name": "New User",
-                "password": "password123",
+                "password": "Password123",
                 "company_name": "New Company",
                 "company_slug": f"new-company-{unique}",
                 "role": "owner",
@@ -27,7 +27,7 @@ class TestAuthSignup:
             json={
                 "email": auth_user["email"],
                 "name": "Dup User",
-                "password": "password123",
+                "password": "Password123",
                 "company_name": "Another",
                 "company_slug": "dup-company-abc",
                 "role": "owner",
@@ -42,7 +42,7 @@ class TestAuthLogin:
             "/api/v1/auth/login",
             json={
                 "email": auth_user["email"],
-                "password": "password123",
+                "password": "Password123",
             },
         )
         assert response.status_code == 200

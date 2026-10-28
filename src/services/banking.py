@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 
@@ -107,7 +107,7 @@ def _parse_date(date_str: str) -> datetime | None:
             return datetime.strptime(date_str.strip(), fmt)
         except ValueError:
             continue
-    return datetime.utcnow()
+    return datetime.now(UTC)
 
 
 def match_transaction_to_journal(

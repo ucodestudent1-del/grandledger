@@ -1,6 +1,7 @@
-"""Middleware: tenant context, audit logging."""
+"""Middleware: tenant context, audit logging, RBAC."""
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, Request, status
@@ -47,6 +48,29 @@ def get_company_id(request: Request) -> UUID:
     if not company_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return company_id
+
+
+def require_role(*allowed_roles: str) -> Any:
+    """Dependency decorator that enforces role-based access control.
+
+    Usage:
+        @router.get("/admin")
+        def admin_route(user: User = Depends(require_role("owner"))):
+            ...
+    """
+
+    def role_checker(request: Request) -> User:
+        user: User = request.state.user
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        if user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions. Required role: {', '.join(allowed_roles)}",
+            )
+        return user
+
+    return role_checker
 
 
 def log_audit(

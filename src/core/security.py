@@ -9,11 +9,9 @@ from jose import JWTError, jwt
 
 from src.config import settings
 
-_BCRYPT_ROUNDS = 4  # Low rounds for dev/testing speed
-
 
 def get_password_hash(password: str) -> str:
-    salt = bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
+    salt = bcrypt.gensalt(rounds=settings.BCRYPT_ROUNDS)
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 

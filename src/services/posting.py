@@ -6,7 +6,7 @@ JournalLine directly. This centralizes debit/credit validation.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -182,9 +182,7 @@ def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = No
 
         before_state = {"status": je.status}
         je.status = JournalEntryStatus.POSTED
-        from datetime import datetime
-
-        je.posted_at = datetime.utcnow()
+        je.posted_at = datetime.now(UTC)
         je.posted_by = posted_by
         session.add(je)
         session.commit()
@@ -202,7 +200,6 @@ def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = No
         )
 
         return je
-
 
 def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = None) -> JournalEntry:
     """Void a journal entry (must be posted)."""
@@ -228,7 +225,7 @@ def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = No
 
         before_state = {"status": je.status}
         je.status = JournalEntryStatus.VOID
-        je.updated_at = datetime.utcnow()
+        je.updated_at = datetime.now(UTC)
         session.add(je)
         session.commit()
         session.refresh(je)
@@ -248,16 +245,25 @@ def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = No
 
 
 def reverse_journal_entry(
-    je_id: UUID, reversed_by: UUID, entry_date: date | None = None, ip_address: str | None = None
+    je_id: UUID,
+    reversed_by: UUID,
+    entry_date: date | None = None,
+    ip_address: str | None = None,
+    session: Session | None = None,
 ) -> JournalEntry:
     """Create a reversing entry that negates all lines of the original.
 
     The original entry must be posted. The reversal entry is created in
     posted status with negated debits/credits.
     """
-    from src.database import engine as db_engine
+    own_session = False
+    if session is None:
+        import src.database as db_module
 
-    with Session(db_engine) as session:
+        session = Session(db_module.engine)
+        own_session = True
+
+    try:
         je = session.get(JournalEntry, je_id)
         if not je:
             raise HTTPException(
@@ -270,11 +276,6 @@ def reverse_journal_entry(
                 detail="Only posted entries can be reversed",
             )
 
-    # Import engine lazily to avoid circular imports
-    import src.database as db_module
-
-    engine = db_module.engine
-    with Session(engine) as session:
         stmt = select(JournalLine).where(JournalLine.journal_entry_id == je_id)
         original_lines = session.exec(stmt).all()
         if not original_lines:
@@ -305,7 +306,7 @@ def reverse_journal_entry(
             created_by=reversed_by,
             posted_by=reversed_by,
         )
-        reversal.posted_at = datetime.utcnow()
+        reversal.posted_at = datetime.now(UTC)
         reversal.posted_by = reversed_by
         reversal.status = JournalEntryStatus.POSTED
         session.add(reversal)
@@ -339,5 +340,11 @@ def reverse_journal_entry(
         )
 
         return reversal
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        if own_session:
+            session.close()
 
 

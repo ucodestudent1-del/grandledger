@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # App
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
+    ALLOWED_ORIGINS: str = ""
 
     # Security
     PASSWORD_MIN_LENGTH: int = 8

@@ -1,5 +1,5 @@
 """Account (Chart of Accounts) model."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -12,6 +12,10 @@ if TYPE_CHECKING:
     from src.models.company import Company
     from src.models.invoice import InvoiceLine
     from src.models.journal import JournalLine
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class AccountType(str):
@@ -34,7 +38,7 @@ class Account(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_system: bool = Field(default=False)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="accounts")  # type: ignore[call-overload]
     parent: "Account" = Relationship(

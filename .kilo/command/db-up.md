@@ -1,10 +1,13 @@
----
-description: Start Postgres + Redis via Docker Compose
----
-Start the required Docker services for development.
+# Database Up
+
+Start PostgreSQL and Redis via Docker Compose.
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-Wait for services to be healthy before running migrations or starting the API.
+Wait for Postgres to be healthy:
+
+```bash
+docker compose ps
+```

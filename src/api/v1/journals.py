@@ -1,12 +1,14 @@
 """Journal entries endpoints."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
+from src.core.middleware import get_company_id
+from src.core.pagination import get_page_params, paginate_query
 from src.models import JournalEntry, User
 from src.schemas import JournalEntryCreate, JournalEntryRead
 from src.services.posting import (
@@ -23,12 +25,6 @@ router = APIRouter(tags=["journals"])
 def get_session() -> Session:
     import src.database as db_module
     return Session(db_module.engine)
-
-
-def get_company_id(request: Request) -> UUID:
-    from src.core.middleware import get_company_id as _gci
-
-    return _gci(request)
 
 
 @router.post("/journals", response_model=JournalEntryRead)
@@ -71,11 +67,15 @@ def list_journals(
     session: Session = Depends(get_session),
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[JournalEntryRead]:
+    page_val, page_size_val = get_page_params(page, page_size)
     stmt = select(JournalEntry).where(JournalEntry.company_id == company_id)
     if status_filter:
         stmt = stmt.where(JournalEntry.status == status_filter)
-    entries = session.exec(stmt).all()
+    items, _, _ = paginate_query(stmt, page_val, page_size_val)
+    entries = session.exec(items).all()
     return [_build_read(je) for je in entries]
 
 
@@ -135,8 +135,9 @@ def reverse_journal(
     je = reverse_journal_entry(
         je_id,
         reversed_by=user.id,
-        entry_date=datetime.utcnow().date(),
+        entry_date=datetime.now(UTC).date(),
         ip_address=ip,
+        session=session,
     )
     session.refresh(je)
     return _build_read(je)

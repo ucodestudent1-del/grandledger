@@ -186,3 +186,104 @@ export interface ReportResponse {
   }
   as_of?: string
 }
+
+export interface ProfitLossResponse {
+  report: "profit-loss"
+  period: { start_date: string; end_date: string }
+  revenue: { total: string; items: { account_name: string; amount: string }[] }
+  expense: { total: string; items: { account_name: string; amount: string }[] }
+  net_income: string
+}
+
+export interface BalanceSheetResponse {
+  report: "balance-sheet"
+  as_of: string
+  assets: { total: string; items: { account_name: string; amount: string }[] }
+  liabilities: { total: string; items: { account_name: string; amount: string }[] }
+  equity: { total: string; items: { account_name: string; amount: string }[] }
+}
+
+export interface TrialBalanceResponse {
+  report: "trial-balance"
+  as_of: string
+  accounts: { code: string; name: string; debit: string; credit: string; balance: string }[]
+}
+
+export interface GeneralLedgerEntry {
+  date: string
+  number: string
+  description: string
+  debit: string
+  credit: string
+  balance: string
+}
+
+export interface GeneralLedgerResponse {
+  report: "general-ledger"
+  as_of: string
+  account: { id: string; code: string; name: string; type: string }
+  entries: GeneralLedgerEntry[]
+}
+
+export interface AgingBucket {
+  current: string
+  days_1_30?: string
+  days_31_60?: string
+  days_61_90?: string
+  days_91_plus?: string
+  total: string
+}
+
+export interface ArAgingContact {
+  contact_name: string
+  total_due: string
+  buckets: AgingBucket
+}
+
+export interface ArAgingResponse {
+  report: "ar-aging"
+  as_of: string
+  contacts: ArAgingContact[]
+}
+
+export interface ApAgingResponse {
+  report: "ap-aging"
+  as_of: string
+  vendors: { vendor_name: string; total_due: string; buckets: AgingBucket }[]
+}
+
+export interface JournalEntryCreate {
+  entry_date: string
+  description: string
+  lines: { account_id: string; description?: string; debit?: string; credit?: string }[]
+}
+
+export interface JournalEntryList {
+  items: JournalEntry[]
+  pagination: {
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+  }
+}
+
+export interface ContactList {
+  items: Contact[]
+  pagination: {
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+  }
+}
+
+export interface AuditList {
+  items: AuditLog[]
+  pagination: {
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+  }
+}

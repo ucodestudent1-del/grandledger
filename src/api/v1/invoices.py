@@ -1,13 +1,15 @@
 """Invoices (AR) endpoints."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
+from src.core.middleware import get_company_id
+from src.core.pagination import get_page_params, paginate_query
 from src.models import (
     Account,
     Contact,
@@ -25,12 +27,6 @@ router = APIRouter(tags=["invoices"])
 def get_session() -> Session:
     import src.database as db_module
     return Session(db_module.engine)
-
-
-def get_company_id(request: Request) -> UUID:
-    from src.core.middleware import get_company_id as _gci
-
-    return _gci(request)
 
 
 @router.post("/invoices", response_model=InvoiceRead)
@@ -108,14 +104,46 @@ def list_invoices(
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
     contact_id: UUID | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[InvoiceRead]:
+    page_val, page_size_val = get_page_params(page, page_size)
     stmt = select(Invoice).where(Invoice.company_id == company_id)
     if status_filter:
         stmt = stmt.where(Invoice.status == status_filter)
     if contact_id:
         stmt = stmt.where(Invoice.contact_id == contact_id)
-    invoices = session.exec(stmt).all()
+    items, _, _ = paginate_query(stmt, page_val, page_size_val)
+    invoices = session.exec(items).all()
     return [_build_read(inv) for inv in invoices]
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def get_invoice_pdf(
+    invoice_id: UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+):
+    """Download an invoice as PDF."""
+    from src.services.pdf import render_invoice_pdf
+
+    invoice = session.get(Invoice, invoice_id)
+    if not invoice or invoice.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    pdf_bytes = render_invoice_pdf(invoice)
+
+    import io
+
+    from starlette.responses import StreamingResponse
+
+    pdf_stream = io.BytesIO(pdf_bytes)
+    return StreamingResponse(
+        pdf_stream,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=invoice_{invoice.number}.pdf"},
+    )
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceRead)
@@ -180,7 +208,7 @@ def issue_invoice(
         company_id=company_id,
         lines=lines,
         description=f"Invoice {invoice.number} issued",
-        entry_date=invoice.issue_date or datetime.utcnow().date(),
+             entry_date=invoice.issue_date or datetime.now(UTC).date(),
         created_by=user.id,
         source="invoice",
         session=session,
@@ -235,9 +263,9 @@ def void_invoice(
                 ),
             ],
             description=f"Void reversal of invoice {invoice.number}",
-            entry_date=datetime.utcnow().date(),
-            created_by=user.id,
-            source="invoice_void",
+             entry_date=datetime.now(UTC).date(),
+             created_by=user.id,
+             source="invoice_void",
             session=session,
             ip_address=ip,
         )
@@ -247,7 +275,7 @@ def void_invoice(
 
 
 def _generate_invoice_number(session: Session, company_id: UUID) -> str:
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     stmt = (
         select(Invoice)
         .where(Invoice.company_id == company_id)

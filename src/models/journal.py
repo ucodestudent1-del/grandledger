@@ -1,5 +1,5 @@
 """Journal entry and journal line models."""
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from src.models.account import Account
     from src.models.company import Company
     from src.models.user import User
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class JournalEntryStatus(str):
@@ -33,8 +37,8 @@ class JournalEntry(SQLModel, table=True):
     source: str | None = Field(default=None, max_length=100)
     created_by: UUID = Field(sa_column=Column(Uuid(), ForeignKey("users.id")))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="journal_entries")  # type: ignore[call-overload]
     lines: list["JournalLine"] = Relationship(  # type: ignore[call-overload]
@@ -55,7 +59,7 @@ class JournalLine(SQLModel, table=True):
     debit: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=4)
     credit: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=4)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     journal_entry: "JournalEntry" = Relationship(back_populates="lines")  # type: ignore[call-overload]
     account: "Account" = Relationship(back_populates="journal_lines")  # type: ignore[call-overload]

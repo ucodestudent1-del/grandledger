@@ -1,5 +1,5 @@
 """Audit log model."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -8,6 +8,10 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from src.models.company import Company
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class AuditLog(SQLModel, table=True):
@@ -23,6 +27,6 @@ class AuditLog(SQLModel, table=True):
     after: dict | None = Field(default=None, sa_column=Column(JSON))
     ip_address: str | None = Field(default=None, max_length=45)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="audit_logs")  # type: ignore[call-overload]

@@ -1,5 +1,5 @@
 """Company model."""
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -20,6 +20,10 @@ if TYPE_CHECKING:
     from src.models.user import User
 
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
 class Company(SQLModel, table=True):
     __tablename__ = "companies"
 
@@ -29,8 +33,8 @@ class Company(SQLModel, table=True):
     currency: str = Field(default="USD", max_length=3)
     financial_year_start: date | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     users: list["User"] = Relationship(back_populates="company", sa_relationship_kwargs={"lazy": "selectin"})  # type: ignore[call-overload]
     accounts: list["Account"] = Relationship(back_populates="company")  # type: ignore[call-overload]

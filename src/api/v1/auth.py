@@ -1,12 +1,13 @@
 """Authentication endpoints: signup, login, refresh, logout, me."""
-from __future__ import annotations
-
 from datetime import timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
+from src.config import settings
+from src.core.middleware import get_company_id, log_audit
+from src.core.rate_limiter import limiter as shared_limiter
 from src.core.security import (
     create_access_token,
     create_refresh_token,
@@ -14,10 +15,14 @@ from src.core.security import (
     get_password_hash,
     verify_password,
 )
+from src.core.validation import validate_company_slug, validate_email, validate_password_strength
 from src.models import Company, User
 from src.schemas import LoginRequest, RefreshRequest, Token, UserCreate, UserRead
 
 router = APIRouter(tags=["auth"])
+
+_signup_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "5/minute"
+_login_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "10/minute"
 
 
 def get_session() -> Session:
@@ -26,11 +31,34 @@ def get_session() -> Session:
 
 
 @router.post("/auth/signup", response_model=Token)
+@shared_limiter.limit(_signup_limit)
 def signup(
     payload: UserCreate,
     request: Request,
     session: Session = Depends(get_session),
 ) -> Token:
+    valid, msg = validate_password_strength(payload.password)
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=msg,
+        )
+
+    email_valid, email_msg = validate_email(payload.email)
+    if not email_valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=email_msg,
+        )
+
+    if payload.company_slug:
+        slug_valid, slug_msg = validate_company_slug(payload.company_slug)
+        if not slug_valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=slug_msg,
+            )
+
     existing = session.exec(select(User).where(User.email == payload.email)).first()
     if existing:
         raise HTTPException(
@@ -70,6 +98,7 @@ def signup(
 
 
 @router.post("/auth/login", response_model=Token)
+@shared_limiter.limit(_login_limit)
 def login(
     payload: LoginRequest,
     request: Request,
@@ -89,6 +118,7 @@ def login(
 
 
 @router.post("/auth/refresh", response_model=Token)
+@shared_limiter.limit(_login_limit)
 def refresh(
     payload: RefreshRequest,
     request: Request,
@@ -126,6 +156,63 @@ def me(request: Request, session: Session = Depends(get_session)) -> UserRead:
     return user
 
 
+@router.get("/users", response_model=list[UserRead])
+@shared_limiter.limit("1000/minute")
+def list_users(
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+) -> list[UserRead]:
+    user: User = request.state.user
+    if user.role not in ("owner", "accountant"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    users = session.exec(select(User).where(User.company_id == company_id)).all()
+    return users
+
+
+@router.post("/users/invite", response_model=UserRead)
+@shared_limiter.limit("1000/minute")
+def invite_user(
+    payload: UserCreate,
+    request: Request,
+    session: Session = Depends(get_session),
+    company_id: UUID = Depends(get_company_id),
+) -> UserRead:
+    user: User = request.state.user
+    if user.role not in ("owner", "accountant"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    existing = session.exec(
+        select(User).where(User.email == payload.email, User.company_id == company_id)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists in this company")
+
+    new_user = User(
+        company_id=company_id,
+        email=payload.email,
+        name=payload.name,
+        role=payload.role if payload.role in ("owner", "bookkeeper", "readonly") else "bookkeeper",
+        password_hash=get_password_hash(payload.password),
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    ip = request.client.host if request.client else None
+
+    log_audit(
+        company_id=company_id,
+        user_id=user.id,
+        action="user.invite",
+        entity_type="User",
+        entity_id=new_user.id,
+        ip_address=ip,
+    )
+
+    return new_user
+
+
 def _issue_tokens(user: User) -> tuple[str, str]:
     from src.config import settings
 
@@ -146,7 +233,6 @@ def _issue_tokens(user: User) -> tuple[str, str]:
 
 def _log_auth_event(action: str, user: User, request: Request) -> None:
     ip = request.client.host if request.client else None
-    from src.core.middleware import log_audit
 
     log_audit(
         company_id=user.company_id,

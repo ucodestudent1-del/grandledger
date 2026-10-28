@@ -1,13 +1,16 @@
----
-description: Run ruff, mypy, eslint, tsc
----
-Run all linters and type checkers across the backend and frontend.
+# Lint
+
+Run all linters (backend + frontend).
+
+## Backend
 
 ```bash
-# Backend
-ruff check src
+ruff check src tests
 mypy src
+```
 
-# Frontend
-cd web && npm run lint && npm run typecheck
+## Frontend
+
+```bash
+cd web && npm run lint
 ```

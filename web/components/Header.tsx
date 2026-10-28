@@ -1,7 +1,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { api } from "@/lib/api"
 
 export default function Header() {
@@ -10,6 +9,7 @@ export default function Header() {
   const handleLogout = () => {
     api.setToken(null)
     localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
     router.push("/login")
   }
 

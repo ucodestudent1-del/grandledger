@@ -1,89 +1,90 @@
-# GrandLedger Bookkeeping SaaS MVP
+# GrandLedger
 
-A multi-tenant double-entry bookkeeping SaaS built for freelancers, small businesses, and accountants managing multiple clients.
+A multi-tenant, audit-ready double-entry bookkeeping SaaS built with FastAPI + Next.js.
 
-## Architecture
+## Features
 
-```
-┌────────────────────┐    ┌──────────────────┐    ┌────────────────────┐
-│   Next.js 15 Web    │    │  FastAPI Backend │    │ PostgreSQL 16      │
-│   (App Router,      │───▶│  (SQLModel,       │────│  (numeric(20,4)    │
-│    TS, Tailwind,    │    │   Alembic)        │    │   money handling)  │
-│    shadcn/ui)        │    │                   │    │                    │
-├────────────────────┤    ├──────────────────┤    ├────────────────────┤
-│   Redis 7           │    │  WeasyPrint       │    │  Docker Compose    │
-│   (cache, RQ queue) │◀──▶│  (PDF generation) │    │  / Kubernetes      │
-└────────────────────┘    └──────────────────┘    └────────────────────┘
-```
+- **Immutable ledger** with draft → posted → void workflow
+- **Double-entry invariant** enforced at the database level (Postgres trigger)
+- **Sales (AR)**: Customers, invoices, credit notes, payments
+- **Purchases (AP)**: Vendors, bills, debit notes, vendor payments
+- **Banking**: Bank accounts, CSV import, transaction matching, reconciliation
+- **Reports**: P&L, Balance Sheet, Trial Balance, General Ledger, AR/AP Aging
+- **Multi-tenancy**: Row-level tenant isolation with company-scoped data
+- **Audit log**: Immutable audit trail for every ledger mutation
+- **Auth**: JWT access + rotating refresh tokens, RBAC (owner, accountant, bookkeeper, read-only)
 
-## Key Design Decisions
+## Tech Stack
 
-1. **Immutable ledger**: Posted journal lines are never updated. Corrections are made via reversing entries + new entries.
-2. **DB-enforced invariant**: A Postgres trigger ensures `SUM(debits) = SUM(credits)` on every journal entry.
-3. **Single posting function**: All GL writes go through `src/services/posting.py`.
-4. **Tenant isolation**: Every tenant-scoped table has `company_id`; middleware enforces context.
-5. **Decimal-only money**: No floats anywhere — `Decimal` in Python, `numeric(20,4)` in DB.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
+| Backend | FastAPI, Python 3.12, SQLModel, Alembic |
+| Database | PostgreSQL 16 (prod), SQLite (dev) |
+| Cache | Redis 7 |
+| Background Jobs | RQ (Redis Queue) |
+| Auth | JWT (HS256), bcrypt |
+| PDF | WeasyPrint |
 
 ## Quick Start
 
 ```bash
-# 1. Clone and configure
+# Clone and setup
 cp .env.example .env
-# Edit .env if needed
 
-# 2. Start services
+# Start infrastructure
 docker compose up -d postgres redis
 
-# 3. Run migrations
+# Run migrations
 alembic upgrade head
 
-# 4. Seed demo data
+# Seed demo data
 python -m src.seeds
 
-# 5. Start API (dev)
+# Start API
 uvicorn src.main:app --reload --port 8000
 
-# 6. Start frontend (dev)
+# Start frontend
 cd web && npm install && npm run dev
 ```
 
-- API docs: http://localhost:8000/docs
+## URLs
+
+- API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 - Frontend: http://localhost:3000
-- Demo login: `demo@grandledger.com` / `password123`
 
-## Project Structure
+### Demo Credentials
 
 ```
-src/
-├── main.py              # FastAPI app, middleware, CORS
-├── config.py            # Pydantic settings (env-driven)
-├── database.py          # SQLModel engine + session
-├── models/              # ORM models
-├── schemas/             # Pydantic DTOs
-├── api/v1/              # REST endpoints
-├── core/                # Security, middleware, tenant context
-├── services/            # Posting, reports, PDF, banking
-├── workers/             # RQ background tasks
-└── migrations/          # Alembic
-web/
-├── app/                 # Next.js App Router
-├── components/          # Shared UI components
-├── lib/                 # API client, utilities
-├── hooks/               # Custom React hooks
-└── types/               # TypeScript types
+Email: demo@grandledger.com
+Password: password123
 ```
 
-## Development Commands
+## Architecture
 
-| Command | Description |
-|---------|-------------|
-| `docker compose up -d` | Start all services |
-| `alembic upgrade head` | Apply database migrations |
-| `python -m src.seeds` | Seed demo data |
-| `uvicorn src.main:app --reload` | Start API in dev mode |
-| `cd web && npm run dev` | Start frontend in dev mode |
-| `pytest tests/` | Run all tests |
+- **Single posting function**: All GL writes go through `services/posting.py`
+- **Database invariant**: Postgres trigger `enforce_balanced_entry` ensures debits = credits
+- **Tenant isolation**: Every tenant table has `company_id`; middleware enforces context
+- **No floats**: `Decimal` in Python, `numeric(20,4)` in DB
+
+## API
+
+OpenAPI 3.1 docs at `/docs` (Swagger UI) and `/redoc` (ReDoc).
+
+All endpoints are at `/api/v1/` and require a Bearer JWT token.
+
+## Development
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Lint + typecheck
+ruff check src tests
+mypy src
+```
 
 ## License
 
-See LICENSE file.
+MIT

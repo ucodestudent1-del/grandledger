@@ -1,13 +1,14 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { api } from "@/lib/api"
 import { Loader2 } from "lucide-react"
+import { api } from "@/lib/api"
+import { useAuth } from "@/app/hooks/useAuth"
 
 export default function SignupPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -25,11 +26,10 @@ export default function SignupPage() {
     setError(null)
     try {
       const res = await api.post<{ access_token: string; refresh_token: string }>("/auth/signup", formData)
-      api.setToken(res.access_token)
-      localStorage.setItem("access_token", res.access_token)
+      login(res.access_token, res.refresh_token)
       router.push("/app")
     } catch (err: any) {
-      setError(err.message || "Signup failed")
+      setError(err.detail || err.message || "Signup failed")
     } finally {
       setIsLoading(false)
     }
@@ -40,7 +40,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-6 rounded-lg bg-card p-8 shadow-sm">
+    <>
       <div className="text-center">
         <h1 className="text-3xl font-bold">GrandLedger</h1>
         <p className="text-sm text-muted-foreground">Create your account</p>
@@ -54,7 +54,7 @@ export default function SignupPage() {
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border border-input px-3 py-2"
+            className="mt-1 block w-full rounded-md border border-input px-3 py-2 bg-background"
             required
           />
         </div>
@@ -65,7 +65,7 @@ export default function SignupPage() {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border border-input px-3 py-2"
+            className="mt-1 block w-full rounded-md border border-input px-3 py-2 bg-background"
             required
           />
         </div>
@@ -76,10 +76,13 @@ export default function SignupPage() {
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border border-input px-3 py-2"
+            className="mt-1 block w-full rounded-md border border-input px-3 py-2 bg-background"
             required
             minLength={8}
           />
+          <p className="text-xs text-muted-foreground mt-1">
+            Min 8 chars, 1 uppercase, 1 lowercase, 1 digit
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium">Company Name</label>
@@ -88,7 +91,7 @@ export default function SignupPage() {
             name="company_name"
             value={formData.company_name}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border border-input px-3 py-2"
+            className="mt-1 block w-full rounded-md border border-input px-3 py-2 bg-background"
             required
           />
         </div>
@@ -99,7 +102,7 @@ export default function SignupPage() {
             name="company_slug"
             value={formData.company_slug}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-md border border-input px-3 py-2"
+            className="mt-1 block w-full rounded-md border border-input px-3 py-2 bg-background"
             placeholder="my-company"
             required
           />
@@ -109,16 +112,22 @@ export default function SignupPage() {
           disabled={isLoading}
           className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isLoading ? "Creating account..." : "Sign Up"}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            "Sign Up"
+          )}
         </button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-primary hover:underline">
+        <a href="/login" className="text-primary hover:underline">
           Login
-        </Link>
+        </a>
       </p>
-    </div>
+    </>
   )
 }

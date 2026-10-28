@@ -1,5 +1,5 @@
 """User model."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -10,6 +10,10 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from src.models.company import Company
     from src.models.journal import JournalEntry
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class UserRole(str):
@@ -30,8 +34,8 @@ class User(SQLModel, table=True):
     password_hash: str = Field(max_length=255)
     is_external_accountant: bool = Field(default=False)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="users")  # type: ignore[call-overload]
 

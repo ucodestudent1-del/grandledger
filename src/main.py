@@ -1,6 +1,7 @@
 """FastAPI main application."""
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
@@ -8,26 +9,35 @@ from uuid import UUID
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlmodel import Session
 
 from src.api import api_router
 from src.config import settings
+from src.core.rate_limiter import limiter
 from src.core.security import decode_access_token
 from src.models import User
+
+logger = logging.getLogger("grandledger")
 
 origins: list[str] = []
 if settings.DEBUG:
     origins = ["http://localhost:3000", "http://localhost:8000"]
+else:
+    env_origins = settings.ALLOWED_ORIGINS.split(",") if settings.ALLOWED_ORIGINS else []
+    origins = [o.strip() for o in env_origins if o.strip()]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> Any:
-    # Create tables on startup (SQLite dev convenience)
-    if "sqlite" in settings.DATABASE_URL:
+    if settings.DEBUG and "sqlite" in settings.DATABASE_URL:
         from src.database import init_db
 
         init_db()
+    logger.info("Starting GrandLedger API (env=%s)", settings.ENVIRONMENT)
     yield
+    logger.info("Shutting down GrandLedger API")
 
 
 app = FastAPI(
@@ -40,13 +50,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded"},
+        headers={"Retry-After": "60"},
+    )
 
 
 @app.middleware("http")
@@ -82,6 +107,16 @@ async def tenant_and_auth_middleware(request: Request, call_next: Any) -> Any:
         request.state.company_id = None
 
     return await call_next(request)
+
+
+@app.get("/health")
+def health_check() -> dict:
+    """Health check endpoint for load balancers and monitoring."""
+    return {
+        "status": "healthy",
+        "version": "1.1.0",
+        "environment": settings.ENVIRONMENT,
+    }
 
 
 app.include_router(api_router)

@@ -1,16 +1,28 @@
----
-description: Start API + frontend in dev mode (Docker services already running)
----
-Start the API (uvicorn) and frontend (Next.js dev) in dev mode.
+# Dev Mode
 
-API:
-```
-cd web/.. && uvicorn src.main:app --reload --port 8000
-```
+Start the API and frontend in development mode.
 
-Frontend:
-```
+## Prerequisites
+
+- Docker running (for Postgres + Redis)
+- Python 3.12+
+- Node.js 20+
+
+## Commands
+
+```bash
+# Start infrastructure services
+docker compose up -d postgres redis
+
+# Start API (from project root)
+uvicorn src.main:app --reload --port 8000
+
+# Start frontend (from web directory)
 cd web && npm run dev
 ```
 
-Run both in parallel or in separate terminals. The API serves docs at `http://localhost:8000/docs` and the frontend at `http://localhost:3000/`.
+## URLs
+
+- API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+- Frontend: http://localhost:3000

@@ -1,10 +1,19 @@
----
-description: Run all tests (unit + integration)
----
-Run the full test suite with pytest, including unit and integration tests.
+# Test
+
+Run all tests (unit + integration).
 
 ```bash
-pytest tests/ -v
+pytest tests/ -v --cov=src --cov-report=term-missing
 ```
 
-This uses SQLite in-memory by default for integration tests. For Postgres-based tests, set `DATABASE_URL` to a test database.
+## Unit Tests Only
+
+```bash
+pytest tests/unit -v
+```
+
+## Integration Tests Only
+
+```bash
+pytest tests/integration -v
+```

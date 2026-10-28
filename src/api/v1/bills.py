@@ -1,13 +1,15 @@
 """Bills (AP) endpoints."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
+from src.core.middleware import get_company_id
+from src.core.pagination import get_page_params, paginate_query
 from src.models import (
     Account,
     Bill,
@@ -25,12 +27,6 @@ router = APIRouter(tags=["bills"])
 def get_session() -> Session:
     import src.database as db_module
     return Session(db_module.engine)
-
-
-def get_company_id(request: Request) -> UUID:
-    from src.core.middleware import get_company_id as _gci
-
-    return _gci(request)
 
 
 @router.post("/bills", response_model=BillRead)
@@ -94,13 +90,17 @@ def list_bills(
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
     contact_id: UUID | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> list[BillRead]:
+    page_val, page_size_val = get_page_params(page, page_size)
     stmt = select(Bill).where(Bill.company_id == company_id)
     if status_filter:
         stmt = stmt.where(Bill.status == status_filter)
     if contact_id:
         stmt = stmt.where(Bill.contact_id == contact_id)
-    bills = session.exec(stmt).all()
+    items, _, _ = paginate_query(stmt, page_val, page_size_val)
+    bills = session.exec(items).all()
     return [_build_read(b) for b in bills]
 
 
@@ -161,7 +161,7 @@ def post_bill(
         company_id=company_id,
         lines=lines,
         description=f"Bill {bill.number} posted",
-        entry_date=bill.issue_date or datetime.utcnow().date(),
+             entry_date=bill.issue_date or datetime.now(UTC).date(),
         created_by=user.id,
         source="bill",
         session=session,
@@ -215,9 +215,9 @@ def void_bill(
                 ),
             ],
             description=f"Void reversal of bill {bill.number}",
-            entry_date=datetime.utcnow().date(),
-            created_by=user.id,
-            source="bill_void",
+             entry_date=datetime.now(UTC).date(),
+             created_by=user.id,
+             source="bill_void",
             session=session,
             ip_address=ip,
         )
@@ -227,7 +227,7 @@ def void_bill(
 
 
 def _generate_bill_number(session: Session, company_id: UUID) -> str:
-    year = datetime.utcnow().year
+    year = datetime.now(UTC).year
     stmt = (
         select(Bill)
         .where(Bill.company_id == company_id)

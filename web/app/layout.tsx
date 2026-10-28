@@ -1,15 +1,13 @@
-import "./globals.css"
-import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { ThemeProvider } from "next-themes"
-import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/components/ThemeProvider"
 import Providers from "@/app/providers"
+import "@/styles/globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "GrandLedger",
-  description: "Multi-tenant double-entry bookkeeping SaaS",
+export const metadata = {
+  title: "GrandLedger — Bookkeeping SaaS",
+  description: "Multi-tenant double-entry bookkeeping for freelancers and small businesses",
 }
 
 export default function RootLayout({
@@ -21,9 +19,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <ThemeProvider attribute="class" defaultTheme="light">
+          <ThemeProvider>
             {children}
-            <Toaster />
           </ThemeProvider>
         </Providers>
       </body>

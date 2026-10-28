@@ -38,7 +38,7 @@ def setup_data(db_session):
         email="test@test.com",
         name="Test User",
         role="owner",
-        password_hash=get_password_hash("pass123"),
+        password_hash=get_password_hash("Password123"),
     )
     db_session.add(user)
     db_session.flush()

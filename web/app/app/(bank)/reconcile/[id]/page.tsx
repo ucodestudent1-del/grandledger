@@ -2,26 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
+import { useAuth, formatCurrency } from "@/app/hooks/useAuth"
 import { BankAccount, BankTransaction } from "@/types/api"
+import { RefreshCw } from "lucide-react"
 
-export default function ReconcilePage() {
+export default function ReconcilePage({ params }: { params: { id: string } }) {
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<BankTransaction[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
-      window.location.href = "/login"
-      return
-    }
-    api.setToken(token)
+    if (!isAuthenticated) return
     api.get<BankAccount[]>("/bank/accounts")
       .then(setAccounts)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (selectedAccount) {
@@ -31,7 +29,20 @@ export default function ReconcilePage() {
     }
   }, [selectedAccount])
 
-  if (loading) return <div>Loading...</div>
+  const handleReconcile = async (txn: BankTransaction) => {
+    try {
+      await api.post(`/bank/transactions/${txn.id}/reconcile`, {})
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === txn.id ? { ...t, status: "reconciled" } : t))
+      )
+    } catch (err) {
+      console.error("Failed to reconcile transaction:", err)
+    }
+  }
+
+  if (authLoading) return <div className="p-6">Loading...</div>
+  if (!isAuthenticated) return null
+  if (loading) return <div className="p-6">Loading...</div>
 
   return (
     <div className="space-y-6">
@@ -39,8 +50,8 @@ export default function ReconcilePage() {
 
       <select
         value={selectedAccount || ""}
-        onChange={(e) => setSelectedAccount(e.target.value)}
-        className="rounded-md border border-input px-3 py-2"
+        onChange={(e) => setSelectedAccount(e.target.value || null)}
+        className="rounded-md border border-input px-3 py-2 bg-background"
       >
         <option value="">Select Bank Account</option>
         {accounts.map((acct) => (
@@ -52,7 +63,7 @@ export default function ReconcilePage() {
 
       {transactions.length > 0 && (
         <div className="border rounded-lg overflow-hidden">
-          <table className="w-full border-collapse">
+          <table className="w-full">
             <thead>
               <tr className="bg-muted">
                 <th className="text-left p-3">Date</th>
@@ -65,9 +76,9 @@ export default function ReconcilePage() {
             <tbody>
               {transactions.map((txn) => (
                 <tr key={txn.id} className="border-t">
-                  <td className="p-3">{txn.date}</td>
+                  <td className="p-3">{txn.txn_date || txn.date}</td>
                   <td className="p-3">{txn.description}</td>
-                  <td className="p-3 text-right">${txn.amount}</td>
+                  <td className="p-3 text-right">{formatCurrency(txn.amount)}</td>
                   <td className="p-3 text-center">
                     <span className={`px-2 py-1 rounded text-xs ${
                       txn.status === "reconciled" ? "bg-green-100 text-green-800" :
@@ -78,9 +89,15 @@ export default function ReconcilePage() {
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    <button className="text-sm text-primary hover:underline">
-                      {txn.matched ? "View" : "Match"}
-                    </button>
+                    {txn.status !== "reconciled" && (
+                      <button
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                        onClick={() => handleReconcile(txn)}
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Reconcile
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

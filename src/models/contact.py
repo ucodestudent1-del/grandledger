@@ -1,5 +1,5 @@
 """Contact (Customer/Vendor) model."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from src.models.company import Company
     from src.models.invoice import Invoice
     from src.models.payment import Payment
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class ContactType(str):
@@ -29,8 +33,8 @@ class Contact(SQLModel, table=True):
     phone: str | None = Field(default=None, max_length=50)
     address: dict | None = Field(default=None, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="contacts")  # type: ignore[call-overload]
     invoices: list["Invoice"] = Relationship(back_populates="contact")  # type: ignore[call-overload]

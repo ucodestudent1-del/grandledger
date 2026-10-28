@@ -1,13 +1,14 @@
 """Financial reports endpoints."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
+from src.core.middleware import get_company_id
 from src.models import (
     Account,
     BankAccount,
@@ -21,12 +22,6 @@ from src.models import (
 from src.schemas import ReportRequest
 
 router = APIRouter(tags=["reports"])
-
-
-def get_company_id(request: Request) -> UUID:
-    from src.core.middleware import get_company_id as _gci
-
-    return _gci(request)
 
 
 def get_session() -> Session:
@@ -170,7 +165,7 @@ def ar_aging(
     if as_of is None:
         from datetime import datetime
 
-        as_of = datetime.utcnow().date()
+        as_of = datetime.now(UTC).date()
 
     stmt = select(Invoice).where(
         Invoice.company_id == company_id,
@@ -228,7 +223,7 @@ def ap_aging(
     if as_of is None:
         from datetime import datetime
 
-        as_of = datetime.utcnow().date()
+        as_of = datetime.now(UTC).date()
 
     from src.models import Bill, BillStatus
 

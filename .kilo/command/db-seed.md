@@ -1,8 +1,17 @@
----
-description: Seed demo data
----
-Seed the database with demo company, chart of accounts, and sample transactions.
+# Database Seed
+
+Seed demo data (creates a demo company with COA, bank accounts, contacts, invoices, and bills).
 
 ```bash
 python -m src.seeds
 ```
+
+To clear and re-seed:
+
+```bash
+python -m src.seeds
+```
+
+Demo credentials:
+- Email: `demo@grandledger.com`
+- Password: `password123`

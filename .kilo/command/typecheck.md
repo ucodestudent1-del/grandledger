@@ -1,7 +1,6 @@
----
-description: Run mypy + tsc only
----
-Run only type checkers (no linting).
+# Typecheck
+
+Run type checking for backend and frontend.
 
 ```bash
 # Backend

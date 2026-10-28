@@ -1,5 +1,5 @@
 """File model."""
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from src.models.company import Company
 
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
 class File(SQLModel, table=True):
     __tablename__ = "files"
 
@@ -20,6 +24,6 @@ class File(SQLModel, table=True):
     filename: str = Field(max_length=255)
     content_type: str = Field(max_length=100)
     size: int = Field()
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    uploaded_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="files")  # type: ignore[call-overload]

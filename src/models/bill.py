@@ -1,5 +1,5 @@
 """Bill and bill line models."""
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from src.models.account import Account
     from src.models.company import Company
     from src.models.contact import Contact
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class BillStatus(str):
@@ -37,8 +41,8 @@ class Bill(SQLModel, table=True):
     allocated_to: dict | None = Field(default=None, sa_column=Column(JSON))
     created_by: UUID = Field(sa_column=Column(Uuid(), ForeignKey("users.id")))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="bills")  # type: ignore[call-overload]
     contact: "Contact" = Relationship(back_populates="bills")  # type: ignore[call-overload]

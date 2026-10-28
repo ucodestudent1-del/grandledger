@@ -12,6 +12,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+os.environ["ENVIRONMENT"] = "testing"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -56,6 +57,7 @@ def db_session(test_engine):
 def client(test_engine):
     """Provide a TestClient that uses the in-memory SQLite database."""
     from src.api.v1.accounts import get_session as accounts_get_session
+    from src.api.v1.audit import get_session as audit_get_session
     from src.api.v1.auth import get_session as auth_get_session
     from src.api.v1.banking import get_session as banking_get_session
     from src.api.v1.bills import get_session as bills_get_session
@@ -70,8 +72,9 @@ def client(test_engine):
         with Session(test_engine) as s:
             yield s
 
-    app.dependency_overrides[auth_get_session] = override_get_session
     app.dependency_overrides[accounts_get_session] = override_get_session
+    app.dependency_overrides[audit_get_session] = override_get_session
+    app.dependency_overrides[auth_get_session] = override_get_session
     app.dependency_overrides[bills_get_session] = override_get_session
     app.dependency_overrides[banking_get_session] = override_get_session
     app.dependency_overrides[companies_get_session] = override_get_session
@@ -105,7 +108,7 @@ def test_user(db_session, test_company):
         email=f"user-{uuid4().hex[:8]}@example.com",
         name="Test User",
         role="owner",
-        password_hash=get_password_hash("password123"),
+        password_hash=get_password_hash("Password123"),
     )
     db_session.add(user)
     db_session.commit()
@@ -147,14 +150,14 @@ def auth_user(client):
         json={
             "email": email,
             "name": "Signup Test",
-            "password": "password123",
+            "password": "Password123",
             "company_name": "Test Company",
             "company_slug": f"test-company-{unique}",
             "role": "owner",
         },
     )
     token = response.json()["access_token"]
-    return {"email": email, "password": "password123", "access_token": token}
+    return {"email": email, "password": "Password123", "access_token": token}
 
 
 @pytest.fixture

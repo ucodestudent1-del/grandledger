@@ -1,18 +1,51 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import {
+  LayoutDashboard,
+  BookOpen,
+  FileText,
+  Users,
+  Receipt,
+  ShoppingCart,
+  FileBill,
+  Banknote,
+  RefreshCw,
+  BarChart3,
+  Shield,
+  Settings,
+} from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/app" },
-  { name: "Chart of Accounts", href: "/app/accounting/chart-of-accounts" },
-  { name: "Journals", href: "/app/accounting/journals" },
-  { name: "Customers", href: "/app/ar/customers" },
-  { name: "Invoices", href: "/app/ar/invoices" },
-  { name: "Vendors", href: "/app/ap/vendors" },
-  { name: "Bills", href: "/app/ap/bills" },
-  { name: "Banking", href: "/app/bank/accounts" },
-  { name: "Reports", href: "/app/reports/profit-loss" },
-  { name: "Audit Log", href: "/app/audit" },
+  { name: "Dashboard", href: "/app", icon: LayoutDashboard },
+  { name: "Chart of Accounts", href: "/app/accounting/chart-of-accounts", icon: BookOpen },
+  { name: "Journals", href: "/app/accounting/journals", icon: FileText },
+  {
+    name: "Customers",
+    href: "/app/ar/customers",
+    icon: Users,
+    section: "ar",
+  },
+  { name: "Invoices", href: "/app/ar/invoices", icon: Receipt },
+  { name: "Vendors", href: "/app/ap/vendors", icon: ShoppingCart },
+  {
+    name: "Bills",
+    href: "/app/ap/bills",
+    icon: FileBill,
+  },
+  { name: "Bank Accounts", href: "/app/bank/accounts", icon: Banknote },
+  {
+    name: "Reconciliation",
+    href: "/app/bank/reconcile",
+    icon: RefreshCw,
+  },
+  {
+    name: "Reports",
+    href: "/app/reports/profit-loss",
+    icon: BarChart3,
+  },
+  { name: "Audit Log", href: "/app/audit", icon: Shield },
+  { name: "Settings", href: "/app/settings/company", icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -29,10 +62,11 @@ export default function Sidebar() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors",
+              "flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors",
               pathname === item.href && "bg-accent text-accent-foreground"
             )}
           >
+            <item.icon className="h-4 w-4" />
             {item.name}
           </Link>
         ))}

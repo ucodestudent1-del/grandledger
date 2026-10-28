@@ -3,6 +3,7 @@
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 
+// Authenticated layout — wraps all pages under /app/app
 export default function AppLayout({
   children,
 }: {

@@ -1,20 +1,15 @@
 "use client"
 
-import { ThemeProvider } from "next-themes"
-import { Toaster } from "@/components/ui/sonner"
-import "@/styles/globals.css"
-
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light">
-      <main className="min-h-screen bg-muted flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="w-full max-w-md space-y-6 rounded-lg bg-card p-8 shadow-sm">
         {children}
-      </main>
-      <Toaster />
-    </ThemeProvider>
+      </div>
+    </div>
   )
 }

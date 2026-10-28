@@ -1,5 +1,5 @@
 """Payment model."""
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -10,6 +10,10 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from src.models.company import Company
     from src.models.contact import Contact
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class PaymentType(str):
@@ -31,7 +35,7 @@ class Payment(SQLModel, table=True):
     reference: str | None = Field(default=None, max_length=255)
     created_by: UUID = Field(sa_column=Column(Uuid(), ForeignKey("users.id")))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=_utcnow, nullable=False)
 
     company: "Company" = Relationship(back_populates="payments")  # type: ignore[call-overload]
     contact: "Contact" = Relationship(back_populates="payments")  # type: ignore[call-overload]
