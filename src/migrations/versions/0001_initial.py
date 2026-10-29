@@ -80,6 +80,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("role", sa.String(50), nullable=False, default="owner"),
         sa.Column("password_hash", sa.String(255), nullable=False),
+        sa.Column("google_id", sa.String(255), nullable=True, default=None),
         sa.Column("is_external_accountant", sa.Boolean(), nullable=False, default=False),
         sa.Column("created_at", sa.DateTime(), nullable=False, default=datetime.utcnow),
         sa.Column("updated_at", sa.DateTime(), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow),

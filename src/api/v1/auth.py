@@ -1,4 +1,4 @@
-"""Authentication endpoints: signup, login, refresh, logout, me."""
+"""Authentication endpoints: signup, login, refresh, logout, me, google."""
 from datetime import timedelta
 from uuid import UUID
 
@@ -17,7 +17,15 @@ from src.core.security import (
 )
 from src.core.validation import validate_company_slug, validate_email, validate_password_strength
 from src.models import Company, User
-from src.schemas import LoginRequest, RefreshRequest, Token, UserCreate, UserRead
+from src.schemas import (
+    GoogleLoginRequest,
+    GoogleSignupRequest,
+    LoginRequest,
+    RefreshRequest,
+    Token,
+    UserCreate,
+    UserRead,
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -154,6 +162,156 @@ def me(request: Request, session: Session = Depends(get_session)) -> UserRead:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     user = session.get(User, user_id)
     return user
+
+
+@router.post("/auth/google", response_model=Token)
+@shared_limiter.limit(_login_limit)
+def google_login(
+    payload: GoogleLoginRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> Token:
+    from google.auth import exceptions as google_exceptions
+    from google.oauth2 import id_token as google_id_token
+
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google authentication is not configured",
+        )
+
+    try:
+        info = google_id_token.verify_oauth2_token(
+            payload.id_token,
+            request=None,
+            client_id=settings.GOOGLE_CLIENT_ID,
+        )
+    except google_exceptions.GoogleAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token",
+        ) from exc
+
+    google_id = info.get("sub")
+    email = info.get("email")
+
+    if not google_id or not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google token missing required fields",
+        )
+
+    user = session.exec(select(User).where(User.google_id == google_id)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found. Please sign up with Google first.",
+        )
+
+    access, refresh = _issue_tokens(user)
+    request.state.user = user
+    request.state.company_id = user.company_id
+    _log_auth_event("google_login", user, request)
+    return Token(access_token=access, refresh_token=refresh)
+
+
+@router.post("/auth/google-signup", response_model=Token)
+@shared_limiter.limit(_signup_limit)
+def google_signup(
+    payload: GoogleSignupRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> Token:
+    from google.auth import exceptions as google_exceptions
+    from google.oauth2 import id_token as google_id_token
+
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google authentication is not configured",
+        )
+
+    try:
+        info = google_id_token.verify_oauth2_token(
+            payload.id_token,
+            request=None,
+            client_id=settings.GOOGLE_CLIENT_ID,
+        )
+    except google_exceptions.GoogleAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token",
+        ) from exc
+
+    google_id = info.get("sub")
+    email = info.get("email")
+    name = info.get("name") or (email.split("@")[0] if email else "Unknown")
+
+    if not google_id or not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google token missing required fields",
+        )
+
+    existing = session.exec(select(User).where(User.google_id == google_id)).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account already exists with this Google ID",
+        )
+
+    existing_email = session.exec(select(User).where(User.email == email)).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
+
+    email_valid, email_msg = validate_email(email)
+    if not email_valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=email_msg,
+        )
+
+    company_name = payload.company_name or name
+    company_slug = payload.company_slug or email.split("@")[0]
+    if payload.company_slug:
+        slug_valid, slug_msg = validate_company_slug(payload.company_slug)
+        if not slug_valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=slug_msg,
+            )
+
+    existing_company = session.exec(select(Company).where(Company.slug == company_slug)).first()
+    if existing_company:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Company slug already taken",
+        )
+
+    company = Company(name=company_name, slug=company_slug)
+    session.add(company)
+    session.flush()
+
+    user = User(
+        company_id=company.id,
+        email=email,
+        name=name,
+        role=payload.role if payload.role in ("owner", "bookkeeper", "readonly") else "owner",
+        password_hash="",
+        google_id=google_id,
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    access, refresh = _issue_tokens(user)
+    request.state.user = user
+    request.state.company_id = user.company_id
+    _log_auth_event("google_signup", user, request)
+    return Token(access_token=access, refresh_token=refresh)
 
 
 @router.get("/users", response_model=list[UserRead])

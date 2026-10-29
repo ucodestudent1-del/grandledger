@@ -1,10 +1,12 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/app/hooks/useAuth"
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 
 export default function SignupPage() {
   const router = useRouter()
@@ -18,7 +20,47 @@ export default function SignupPage() {
     role: "owner",
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (GOOGLE_CLIENT_ID && typeof window !== "undefined" && !window.google) {
+      const script = document.createElement("script")
+      script.src = "https://accounts.google.com/gsi/client"
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        if (window.google) {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCallback,
+          })
+          window.google.accounts.id.renderButton(
+            document.getElementById("google-signin-button"),
+            { theme: "outline", size: "large", text: "signup_with", shape: "rectangular" },
+          )
+        }
+      }
+      document.head.appendChild(script)
+    }
+  }, [])
+
+  const handleGoogleCallback = async (response: { credential: string }) => {
+    setIsGoogleLoading(true)
+    setError(null)
+    try {
+      const res = await api.post<{ access_token: string; refresh_token: string }>(
+        "/auth/google-signup",
+        { id_token: response.credential },
+      )
+      login(res.access_token, res.refresh_token)
+      router.push("/")
+    } catch (err: any) {
+      setError(err.detail || err.message || "Google signup failed")
+    } finally {
+      setIsGoogleLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +88,9 @@ export default function SignupPage() {
         <p className="text-sm text-muted-foreground">Create your account</p>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {GOOGLE_CLIENT_ID && (
+        <div id="google-signin-button" className="w-full flex justify-center"></div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium">Full Name</label>

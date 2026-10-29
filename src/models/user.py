@@ -32,6 +32,7 @@ class User(SQLModel, table=True):
     name: str = Field(max_length=255)
     role: str = Field(default="owner", max_length=50)
     password_hash: str = Field(max_length=255)
+    google_id: str | None = Field(default=None, max_length=255)
     is_external_accountant: bool = Field(default=False)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)

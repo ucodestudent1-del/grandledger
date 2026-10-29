@@ -43,6 +43,17 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
+
+class GoogleSignupRequest(BaseModel):
+    id_token: str
+    company_name: str | None = None
+    company_slug: str | None = None
+    role: str | None = None
+
+
 class CompanyCreate(BaseModel):
     name: str
     slug: str

@@ -20,6 +20,7 @@ dependencies = [
     "python-multipart>=0.0.1",
     "slowapi>=0.1.9",
     "uvicorn[standard]>=0.30.6",
+    "google-auth>=2.35.0",
 ]
 
 [project.optional-dependencies]

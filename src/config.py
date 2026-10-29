@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # OAuth providers
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
     # Security
     PASSWORD_MIN_LENGTH: int = 8
     BCRYPT_ROUNDS: int = 12
