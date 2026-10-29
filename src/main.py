@@ -123,6 +123,11 @@ app.include_router(api_router)
 
 @app.get("/", include_in_schema=False)
 def root() -> Any:
+    frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+
     if settings.DEBUG:
         return HTMLResponse(
             content=f"""<!DOCTYPE html>
@@ -135,12 +140,6 @@ def root() -> Any:
 </body>
 </html>"""
         )
-
-    # Production: serve the statically exported frontend index.html
-    frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
-    index_path = frontend_dist / "index.html"
-    if index_path.exists():
-        return FileResponse(index_path)
 
     return HTMLResponse(
         content="""<!DOCTYPE html>
@@ -157,22 +156,19 @@ def root() -> Any:
 @app.get("/{path:path}", include_in_schema=False)
 def spa_fallback(path: str) -> Any:
     """Serve frontend assets for client-side routes in production."""
-    if settings.DEBUG:
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{path}")
-
     frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
     file_path = frontend_dist / path
 
-    # Serve the file if it exists (static assets, _next/*, etc.)
     if file_path.is_file():
         return FileResponse(file_path)
 
-    # With trailingSlash, routes are dirs: try /login/index.html
     index_candidate = frontend_dist / path / "index.html"
     if index_candidate.is_file():
         return FileResponse(index_candidate)
 
-    # For client-side routes, serve the root index.html (SPA fallback)
+    if settings.DEBUG and not (frontend_dist / "index.html").exists():
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/{path}")
+
     index_path = frontend_dist / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
