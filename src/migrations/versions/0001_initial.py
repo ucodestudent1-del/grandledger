@@ -29,7 +29,7 @@ def _create_trigger_function() -> None:
             total_debit NUMERIC(20,4) := 0;
             total_credit NUMERIC(20,4) := 0;
         BEGIN
-            IF NEW.status = 'posted' THEN
+            IF NEW.status = 'posted' AND (OLD.status IS NULL OR OLD.status != 'posted') THEN
                 SELECT COALESCE(SUM(dl.debit), 0), COALESCE(SUM(dl.credit), 0)
                 INTO total_debit, total_credit
                 FROM journal_lines dl
@@ -53,17 +53,9 @@ def _create_trigger_function() -> None:
         EXECUTE FUNCTION enforce_balanced_entry();
     """)
 
-    op.execute("""
-        CREATE TRIGGER balanced_entry_insert_trigger
-        BEFORE INSERT ON journal_entries
-        FOR EACH ROW
-        EXECUTE FUNCTION enforce_balanced_entry();
-    """)
-
 
 def _drop_trigger_function() -> None:
     op.execute("DROP TRIGGER IF EXISTS balanced_entry_trigger ON journal_entries;")
-    op.execute("DROP TRIGGER IF EXISTS balanced_entry_insert_trigger ON journal_entries;")
     op.execute("DROP FUNCTION IF EXISTS enforce_balanced_entry();")
 
 

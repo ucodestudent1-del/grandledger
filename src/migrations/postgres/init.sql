@@ -8,7 +8,7 @@ DECLARE
     total_credit NUMERIC(20,4) := 0;
 BEGIN
     -- Only enforce on posted entries
-    IF NEW.status = 'posted' THEN
+    IF NEW.status = 'posted' AND (OLD.status IS NULL OR OLD.status != 'posted') THEN
         SELECT COALESCE(SUM(dl.debit), 0), COALESCE(SUM(dl.credit), 0)
         INTO total_debit, total_credit
         FROM journal_lines dl
@@ -27,9 +27,4 @@ CREATE TRIGGER balanced_entry_trigger
 BEFORE UPDATE ON journal_entries
 FOR EACH ROW
 WHEN (OLD.status IS DISTINCT FROM NEW.status)
-EXECUTE FUNCTION enforce_balanced_entry();
-
-CREATE TRIGGER balanced_entry_insert_trigger
-BEFORE INSERT ON journal_entries
-FOR EACH ROW
 EXECUTE FUNCTION enforce_balanced_entry();

@@ -7,18 +7,20 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
+from sqlmodel import SQLModel
 
 from src.config import settings
 from src.database import engine as db_engine
-from src.models import *  # noqa: F401,F403  — import all models for metadata
+from src.models import *  # noqa: F401,F403  -- import all models for metadata
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None  # type: ignore[assignment]
+target_metadata: MetaData = SQLModel.metadata
 
 
 def get_url() -> str:

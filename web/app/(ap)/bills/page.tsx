@@ -29,7 +29,7 @@ export default function BillsPage() {
         <h1 className="text-2xl font-bold">Bills</h1>
         <button
           className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2"
-          onClick={() => (window.location.href = "/ap/bills/new")}
+           onClick={() => (window.location.href = "/bills/new")}
         >
           <Plus className="h-4 w-4" />
           New Bill
@@ -55,7 +55,7 @@ export default function BillsPage() {
                 <td className="p-3 text-right">
                   <button
                     className="text-sm text-primary hover:underline"
-                    onClick={() => (window.location.href = `/ap/bills/${b.id}`)}
+                     onClick={() => (window.location.href = `/bills/${b.id}`)}
                   >
                     View
                   </button>

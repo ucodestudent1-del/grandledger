@@ -65,8 +65,14 @@ def create_payment(
     # Receipt: DR Bank, CR Accounts Receivable
     # Payment: DR Accounts Payable, CR Bank
     bank_account = _get_default_bank_account(session, company_id)
+    if not bank_account:
+        raise HTTPException(
+            status_code=400,
+            detail="No bank account configured for this company",
+        )
     if payload.type == PaymentType.RECEIPT:
         ar_account = _get_ar_account(session, company_id)
+        credit_account = ar_account if ar_account else bank_account
         lines = [
             JournalLineData(
                 account_id=bank_account.id,
@@ -75,7 +81,7 @@ def create_payment(
                 credit=Decimal("0"),
             ),
             JournalLineData(
-                account_id=ar_account.id if ar_account else bank_account.id,
+                account_id=credit_account.id,
                 description=f"Payment {payment.id} for {contact.name}",
                 debit=Decimal("0"),
                 credit=payload.amount,
@@ -83,9 +89,10 @@ def create_payment(
         ]
     else:  # payment
         ap_account = _get_ap_account(session, company_id)
+        debit_account = ap_account if ap_account else bank_account
         lines = [
             JournalLineData(
-                account_id=ap_account.id if ap_account else bank_account.id,
+                account_id=debit_account.id,
                 description=f"Payment {payment.id} to {contact.name}",
                 debit=payload.amount,
                 credit=Decimal("0"),
@@ -156,7 +163,7 @@ def get_payment(
     return _build_read(payment)
 
 
-def _get_default_bank_account(session: Session, company_id: UUID) -> BankAccount:
+def _get_default_bank_account(session: Session, company_id: UUID) -> BankAccount | None:
     stmt = select(BankAccount).where(BankAccount.company_id == company_id)
     return session.exec(stmt).first()
 

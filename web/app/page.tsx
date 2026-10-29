@@ -95,7 +95,7 @@ export default function DashboardPage() {
           <div className="text-2xl font-bold">{recentEntries.length}</div>
           <div className="text-sm text-muted-foreground">Recent Journal Entries</div>
         </Link>
-        <Link href="/ar/invoices" className="block p-4 border rounded-lg hover:bg-muted">
+        <Link href="/invoices" className="block p-4 border rounded-lg hover:bg-muted">
           <div className="text-2xl font-bold">{recentInvoices.length}</div>
           <div className="text-sm text-muted-foreground">Recent Invoices</div>
         </Link>

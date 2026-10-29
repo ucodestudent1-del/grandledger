@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Token(BaseModel):
@@ -187,6 +187,8 @@ class InvoiceRead(BaseModel):
     tax_total: Decimal
     total: Decimal
     currency: str
+    journal_entry_id: UUID | None = None
+    allocated_to: dict | None = None
     created_at: datetime
     updated_at: datetime
     lines: list[InvoiceLineRead]
@@ -287,12 +289,12 @@ class BankAccountRead(BaseModel):
 
 
 class BankTransactionRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: UUID
     company_id: UUID
     bank_account_id: UUID
-    txn_date: date | None = None
+    txn_date: date | None = Field(default=None, serialization_alias="date")
     description: str
     amount: Decimal
     balance: Decimal | None = None
@@ -339,7 +341,6 @@ __all__ = [
     "JournalEntryCreate",
     "JournalLineRead",
     "JournalEntryRead",
-    "JournalLineCreate",
     "InvoiceLineCreate",
     "InvoiceLineRead",
     "InvoiceCreate",

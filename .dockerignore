@@ -11,6 +11,8 @@ __pycache__
 .env.production
 web/node_modules
 web/.next
+web/.env.local
+web/.env
 web/out
 web/.env.local
 web/.eslintrc.json

@@ -4,21 +4,25 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
 from src.models import Invoice
 
 TEMPLATE_DIR = Path(__file__).parent.parent.parent / "templates"
 
-_env = Environment(
-    loader=FileSystemLoader(str(TEMPLATE_DIR)),
-    autoescape=select_autoescape(["html", "xml"]),
-)
+
+def _get_env():
+    try:
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+    except ImportError:
+        return None
+    return Environment(
+        loader=FileSystemLoader(str(TEMPLATE_DIR)),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
 
 
 def render_invoice_pdf(invoice: Invoice, output_path: str | None = None) -> bytes:
     """Render an invoice to PDF bytes, optionally writing to output_path."""
-    template = _env.get_template("invoice.html")
+    template = _get_env().get_template("invoice.html")
 
     html_out = template.render(
         invoice=invoice,
@@ -48,7 +52,7 @@ def render_invoice_pdf(invoice: Invoice, output_path: str | None = None) -> byte
 
 def render_statement_pdf(contact_name: str, transactions: list, output_path: str | None = None) -> bytes:
     """Render a customer/vendor statement to PDF."""
-    template = _env.get_template("statement.html")
+    template = _get_env().get_template("statement.html")
     html_out = template.render(
         contact_name=contact_name,
         transactions=transactions,
@@ -64,10 +68,3 @@ def render_statement_pdf(contact_name: str, transactions: list, output_path: str
             f.write(pdf_bytes)
 
     return pdf_bytes
-
-
-# Jinja2 is a transitive dependency of WeasyPrint; if not present, fall back gracefully
-try:
-    pass  # jinja2 is available via weasyprint deps
-except ImportError:
-    _env = None  # type: ignore[assignment]

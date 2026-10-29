@@ -30,7 +30,7 @@ export default function JournalsPage() {
         <h1 className="text-2xl font-bold">Journal Entries</h1>
         <button
           className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm flex items-center gap-2"
-          onClick={() => (window.location.href = "/accounting/journals/new")}
+          onClick={() => (window.location.href = "/journals/new")}
         >
           <Plus className="h-4 w-4" />
           New Journal Entry
@@ -66,7 +66,7 @@ export default function JournalsPage() {
                 <td className="p-3 text-right">
                   <button
                     className="text-sm text-primary hover:underline"
-                    onClick={() => (window.location.href = `/accounting/journals/${je.id}`)}
+                    onClick={() => (window.location.href = `/journals/${je.id}`)}
                   >
                     View
                   </button>

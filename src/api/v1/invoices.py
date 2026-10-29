@@ -178,6 +178,11 @@ def issue_invoice(
     # Create journal entry: DR Accounts Receivable, CR Revenue, CR Tax Payable
     ar_account = _get_ar_account(session, company_id)
     revenue_account = _get_revenue_account(session, company_id)
+    if not ar_account or not revenue_account:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required accounts (Accounts Receivable, Revenue) for this company",
+        )
     tax_account = _get_tax_account(session, company_id)
 
     lines: list[JournalLineData] = [
@@ -195,6 +200,11 @@ def issue_invoice(
         ),
     ]
     if invoice.tax_total > 0:
+        if not tax_account:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing tax account for this company",
+            )
         lines.append(
             JournalLineData(
                 account_id=tax_account.id,
@@ -246,17 +256,24 @@ def void_invoice(
     # If the invoice has a posted JE, we need to reverse it
     if invoice.journal_entry_id:
         ip = request.client.host if request.client else None
+        ar_account = _get_ar_account(session, company_id)
+        revenue_account = _get_revenue_account(session, company_id)
+        if not ar_account or not revenue_account:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required accounts for reversal",
+            )
         reversal_je = post_journal(
             company_id=company_id,
             lines=[
                 JournalLineData(
-                    account_id=_get_ar_account(session, company_id).id,
+                    account_id=ar_account.id,
                     description=f"Void reversal of invoice {invoice.number}",
                     debit=Decimal("0"),
                     credit=invoice.total,
                 ),
                 JournalLineData(
-                    account_id=_get_revenue_account(session, company_id).id,
+                    account_id=revenue_account.id,
                     description=f"Void reversal of invoice {invoice.number}",
                     debit=invoice.subtotal,
                     credit=Decimal("0"),
@@ -291,7 +308,7 @@ def _generate_invoice_number(session: Session, company_id: UUID) -> str:
     return f"INV-{year}-{next_num:05d}"
 
 
-def _get_ar_account(session: Session, company_id: UUID) -> Account:
+def _get_ar_account(session: Session, company_id: UUID) -> Account | None:
     stmt = select(Account).where(
         Account.company_id == company_id,
         Account.name.ilike("%accounts receivable%"),
@@ -299,7 +316,7 @@ def _get_ar_account(session: Session, company_id: UUID) -> Account:
     return session.exec(stmt).first()
 
 
-def _get_revenue_account(session: Session, company_id: UUID) -> Account:
+def _get_revenue_account(session: Session, company_id: UUID) -> Account | None:
     stmt = select(Account).where(
         Account.company_id == company_id,
         Account.type == "revenue",
@@ -307,12 +324,12 @@ def _get_revenue_account(session: Session, company_id: UUID) -> Account:
     return session.exec(stmt).first()
 
 
-def _get_tax_account(session: Session, company_id: UUID) -> Account:
+def _get_tax_account(session: Session, company_id: UUID) -> Account | None:
     stmt = select(Account).where(
         Account.company_id == company_id,
         Account.name.ilike("%tax%"),
     )
-    return session.exec(stmt).first_or_404()
+    return session.exec(stmt).first()
 
 
 def _build_read(invoice: Invoice) -> InvoiceRead:

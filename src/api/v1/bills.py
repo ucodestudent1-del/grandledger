@@ -198,17 +198,24 @@ def void_bill(
 
     if bill.journal_entry_id:
         ip = request.client.host if request.client else None
+        ap_account = _get_ap_account(session, company_id)
+        expense_account = _get_expense_account(session, company_id)
+        if not ap_account or not expense_account:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required accounts for reversal",
+            )
         reversal_je = post_journal(
             company_id=company_id,
             lines=[
                 JournalLineData(
-                    account_id=_get_ap_account(session, company_id).id,
+                    account_id=ap_account.id,
                     description=f"Void reversal of bill {bill.number}",
                     debit=Decimal("0"),
                     credit=bill.total,
                 ),
                 JournalLineData(
-                    account_id=_get_expense_account(session, company_id).id,
+                    account_id=expense_account.id,
                     description=f"Void reversal of bill {bill.number}",
                     debit=bill.subtotal,
                     credit=Decimal("0"),
@@ -218,8 +225,8 @@ def void_bill(
              entry_date=datetime.now(UTC).date(),
              created_by=user.id,
              source="bill_void",
-            session=session,
-            ip_address=ip,
+             session=session,
+             ip_address=ip,
         )
         post_journal_entry(reversal_je.id, posted_by=user.id, ip_address=ip)
 
@@ -243,7 +250,7 @@ def _generate_bill_number(session: Session, company_id: UUID) -> str:
     return f"BILL-{year}-{next_num:05d}"
 
 
-def _get_ap_account(session: Session, company_id: UUID) -> Account:
+def _get_ap_account(session: Session, company_id: UUID) -> Account | None:
     stmt = select(Account).where(
         Account.company_id == company_id,
         Account.name.ilike("%accounts payable%"),
@@ -251,7 +258,7 @@ def _get_ap_account(session: Session, company_id: UUID) -> Account:
     return session.exec(stmt).first()
 
 
-def _get_expense_account(session: Session, company_id: UUID) -> Account:
+def _get_expense_account(session: Session, company_id: UUID) -> Account | None:
     stmt = select(Account).where(
         Account.company_id == company_id,
         Account.type == "expense",
