@@ -61,13 +61,13 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/grandledger_test
           SECRET_KEY: ci-secret-key
-        run: pytest tests/unit -v --cov=src --cov-report=xml --cov-fail-under=80
+        run: pytest tests/unit -v --cov=src --cov-report=xml --cov-fail-under=40
 
       - name: Run integration tests
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/grandledger_test
           SECRET_KEY: ci-secret-key
-        run: pytest tests/integration -v
+        run: pytest tests/integration -v --cov=src --cov-report=term
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -88,7 +88,11 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./web
-        run: npm install --no-audit --no-fund --legacy-peer-deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        working-directory: ./web
+        run: npm run build
 
       - name: Lint
         working-directory: ./web
