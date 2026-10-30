@@ -4,12 +4,13 @@ import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth, formatCurrency } from "@/app/hooks/useAuth"
 import { BankAccount, BankTransaction } from "@/types/api"
-import { Plus, Upload, RefreshCw } from "lucide-react"
+import { Plus, Upload, RefreshCw, Download } from "lucide-react"
 
 export default function BankAccountsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -18,6 +19,24 @@ export default function BankAccountsPage() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [isAuthenticated])
+
+  const handleCsvImport = async (accountId: string, file: File) => {
+    setImporting(accountId)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      await api.post(`/bank/transactions/import?bank_account_id=${accountId}`, formData)
+      setLoading(true)
+      api.get<BankAccount[]>("/bank/accounts")
+        .then(setAccounts)
+        .catch(console.error)
+        .finally(() => setLoading(false))
+    } catch (err: any) {
+      console.error("Import failed:", err)
+    } finally {
+      setImporting(null)
+    }
+  }
 
   if (authLoading) return <div className="p-6">Loading...</div>
   if (!isAuthenticated) return null
@@ -52,17 +71,36 @@ export default function BankAccountsPage() {
                 <td className="p-3">{acct.account_number || "-"}</td>
                 <td className="p-3 text-right">{formatCurrency(acct.starting_balance)}</td>
                 <td className="p-3 text-right">
+                  <label className="inline-flex items-center gap-2 border border-input px-2 py-1 rounded text-sm cursor-pointer hover:bg-accent">
+                    <Upload className="h-4 w-4" />
+                    {importing === acct.id ? "Importing..." : "Import CSV"}
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleCsvImport(acct.id, file)
+                        e.target.value = ""
+                      }}
+                    />
+                  </label>
                   <button
-                    className="text-sm text-primary hover:underline"
-                    onClick={() => (window.location.href = `/bank/accounts/${acct.id}`)}
+                    onClick={() => (window.location.href = `/bank/reconcile?account=${acct.id}`)}
+                    className="ml-2 text-sm text-primary hover:underline"
                   >
-                    Manage
+                    Reconcile
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        <Download className="h-4 w-4 inline mr-1" />
+        CSV format: date,description,amount,balance
       </div>
     </div>
   )

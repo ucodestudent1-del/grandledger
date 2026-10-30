@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { useAuth } from "@/app/hooks/useAuth"
 import { Account, JournalEntry } from "@/types/api"
-import { Save, Trash2, Loader2, Plus } from "lucide-react"
+import { Save, Trash2, Loader2, Plus, FileDown } from "lucide-react"
+import StatusBadge from "@/components/ui/StatusBadge"
 
 interface AccountOption {
   id: string
@@ -184,13 +185,11 @@ export default function JournalForm({ journalId }: { journalId?: string }) {
           {isEdit ? `Edit Journal ${journal?.number || ""}` : "New Journal Entry"}
         </h1>
         {journal && (
-          <span className={`px-2 py-1 rounded text-xs capitalize ${
-            journal.status === "posted" ? "bg-green-100 text-green-800" :
-            journal.status === "void" ? "bg-red-100 text-red-800" :
-            "bg-yellow-100 text-yellow-800"
-          }`}>
-            {journal.status}
-          </span>
+          <StatusBadge
+            status={journal.status === "posted" ? "void" : journal.status === "void" ? "void" : "draft"}
+          >
+            {journal.status.toUpperCase()}
+          </StatusBadge>
         )}
       </div>
 
