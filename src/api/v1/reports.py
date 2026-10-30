@@ -48,12 +48,8 @@ def profit_loss(
             "start_date": payload.start_date.isoformat(),
             "end_date": payload.end_date.isoformat(),
         },
-        "revenue": [
-            {"account": "Revenue", "amount": str(total_revenue)}
-        ],
-        "expenses": [
-            {"account": "Expenses", "amount": str(total_expenses)}
-        ],
+        "revenue": revenue_lines,
+        "expenses": expense_lines,
         "net_income": str(net_income),
     }
 
@@ -65,14 +61,16 @@ def balance_sheet(
     session: Session = Depends(get_session),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
-    assets, liabilities, equity = _get_bs_data(session, company_id, payload.end_date)
+    assets, liabilities, equity, asset_lines, liability_lines, equity_lines = _get_bs_data(
+        session, company_id, payload.end_date
+    )
 
     return {
         "report": "Balance Sheet",
         "as_of": payload.end_date.isoformat(),
-        "assets": {"total": str(assets)},
-        "liabilities": {"total": str(liabilities)},
-        "equity": {"total": str(equity)},
+        "assets": {"total": str(assets), "items": asset_lines},
+        "liabilities": {"total": str(liabilities), "items": liability_lines},
+        "equity": {"total": str(equity), "items": equity_lines},
     }
 
 
@@ -183,6 +181,7 @@ def ar_aging(
     }
 
     total_outstanding = Decimal("0")
+    contacts: dict[str, dict] = {}
 
     for inv in invoices:
         paid = _get_payments_for_invoice(session, inv)
@@ -195,21 +194,49 @@ def ar_aging(
         days_overdue = (as_of - inv.due_date).days if inv.due_date else 0
 
         if days_overdue == 0:
-            buckets["current"] += outstanding
+            bucket_key = "current"
         elif days_overdue <= 30:
-            buckets["0-30"] += outstanding
+            bucket_key = "0-30"
         elif days_overdue <= 60:
-            buckets["31-60"] += outstanding
+            bucket_key = "31-60"
         elif days_overdue <= 90:
-            buckets["61-90"] += outstanding
+            bucket_key = "61-90"
         else:
-            buckets["90+"] += outstanding
+            bucket_key = "90+"
+
+        buckets[bucket_key] += outstanding
+
+        contact_key = str(inv.contact_id)
+        if contact_key not in contacts:
+            contact_name = _get_contact_name(session, inv.contact_id)
+            contacts[contact_key] = {
+                "contact_name": contact_name,
+                "total_due": Decimal("0"),
+                "buckets": {
+                    "current": Decimal("0"),
+                    "0-30": Decimal("0"),
+                    "31-60": Decimal("0"),
+                    "61-90": Decimal("0"),
+                    "90+": Decimal("0"),
+                },
+            }
+        contacts[contact_key]["total_due"] += outstanding
+        contacts[contact_key]["buckets"][bucket_key] += outstanding
+
+    contact_list = []
+    for c in contacts.values():
+        contact_list.append({
+            "contact_name": c["contact_name"],
+            "total_due": str(c["total_due"]),
+            "buckets": {k: str(v) for k, v in c["buckets"].items()},
+        })
 
     return {
         "report": "AR Aging",
         "as_of": as_of.isoformat(),
         "total_outstanding": str(total_outstanding),
         "buckets": {k: str(v) for k, v in buckets.items()},
+        "contacts": contact_list,
     }
 
 
@@ -243,6 +270,7 @@ def ap_aging(
     }
 
     total_outstanding = Decimal("0")
+    vendors: dict[str, dict] = {}
 
     for bill in bills:
         paid = _get_payments_for_bill(session, bill)
@@ -255,21 +283,49 @@ def ap_aging(
         days_overdue = (as_of - bill.due_date).days if bill.due_date else 0
 
         if days_overdue == 0:
-            buckets["current"] += outstanding
+            bucket_key = "current"
         elif days_overdue <= 30:
-            buckets["0-30"] += outstanding
+            bucket_key = "0-30"
         elif days_overdue <= 60:
-            buckets["31-60"] += outstanding
+            bucket_key = "31-60"
         elif days_overdue <= 90:
-            buckets["61-90"] += outstanding
+            bucket_key = "61-90"
         else:
-            buckets["90+"] += outstanding
+            bucket_key = "90+"
+
+        buckets[bucket_key] += outstanding
+
+        vendor_key = str(bill.contact_id)
+        if vendor_key not in vendors:
+            vendor_name = _get_contact_name(session, bill.contact_id)
+            vendors[vendor_key] = {
+                "vendor_name": vendor_name,
+                "total_due": Decimal("0"),
+                "buckets": {
+                    "current": Decimal("0"),
+                    "0-30": Decimal("0"),
+                    "31-60": Decimal("0"),
+                    "61-90": Decimal("0"),
+                    "90+": Decimal("0"),
+                },
+            }
+        vendors[vendor_key]["total_due"] += outstanding
+        vendors[vendor_key]["buckets"][bucket_key] += outstanding
+
+    vendor_list = []
+    for v in vendors.values():
+        vendor_list.append({
+            "vendor_name": v["vendor_name"],
+            "total_due": str(v["total_due"]),
+            "buckets": {k: str(val) for k, val in v["buckets"].items()},
+        })
 
     return {
         "report": "AP Aging",
         "as_of": as_of.isoformat(),
         "total_outstanding": str(total_outstanding),
         "buckets": {k: str(v) for k, v in buckets.items()},
+        "vendors": vendor_list,
     }
 
 
@@ -324,7 +380,7 @@ def cash_summary(
 
 def _get_pnl_data(
     session: Session, company_id: UUID, start_date: date, end_date: date
-) -> tuple[list, list, Decimal, Decimal]:
+) -> tuple[list[dict], list[dict], Decimal, Decimal]:
     stmt = (
         select(Account, JournalLine, JournalEntry)
         .join(JournalLine, JournalEntry.id == JournalLine.journal_entry_id)
@@ -339,17 +395,33 @@ def _get_pnl_data(
     total_revenue = Decimal("0")
     total_expenses = Decimal("0")
 
+    revenue_map: dict[str, dict] = {}
+    expense_map: dict[str, dict] = {}
+
     for acct, line, _ in results:
         net = line.debit - line.credit
         if acct.type == "revenue":
             total_revenue += net
+            key = str(acct.id)
+            if key not in revenue_map:
+                revenue_map[key] = {"account": acct.name, "amount": Decimal("0")}
+            revenue_map[key]["amount"] += net
         elif acct.type == "expense":
             total_expenses += net
+            key = str(acct.id)
+            if key not in expense_map:
+                expense_map[key] = {"account": acct.name, "amount": Decimal("0")}
+            expense_map[key]["amount"] += net
 
-    return [], [], total_revenue, total_expenses
+    revenue_lines = [{"account": v["account"], "amount": str(v["amount"])} for v in revenue_map.values()]
+    expense_lines = [{"account": v["account"], "amount": str(v["amount"])} for v in expense_map.values()]
+
+    return revenue_lines, expense_lines, total_revenue, total_expenses
 
 
-def _get_bs_data(session: Session, company_id: UUID, as_of: date) -> tuple[Decimal, Decimal, Decimal]:
+def _get_bs_data(
+    session: Session, company_id: UUID, as_of: date
+) -> tuple[Decimal, Decimal, Decimal, list[dict], list[dict], list[dict]]:
     stmt = (
         select(Account, JournalLine, JournalEntry)
         .join(JournalLine, JournalEntry.id == JournalLine.journal_entry_id)
@@ -364,16 +436,34 @@ def _get_bs_data(session: Session, company_id: UUID, as_of: date) -> tuple[Decim
     liabilities = Decimal("0")
     equity = Decimal("0")
 
+    asset_map: dict[str, dict] = {}
+    liability_map: dict[str, dict] = {}
+    equity_map: dict[str, dict] = {}
+
     for acct, line, _ in results:
         net = line.debit - line.credit
+        key = str(acct.id)
         if acct.type == "asset":
             assets += net
+            if key not in asset_map:
+                asset_map[key] = {"account_name": acct.name, "amount": Decimal("0")}
+            asset_map[key]["amount"] += net
         elif acct.type == "liability":
             liabilities += net
+            if key not in liability_map:
+                liability_map[key] = {"account_name": acct.name, "amount": Decimal("0")}
+            liability_map[key]["amount"] += net
         elif acct.type == "equity":
             equity += net
+            if key not in equity_map:
+                equity_map[key] = {"account_name": acct.name, "amount": Decimal("0")}
+            equity_map[key]["amount"] += net
 
-    return assets, liabilities, equity
+    asset_lines = [{"account_name": v["account_name"], "amount": str(v["amount"])} for v in asset_map.values()]
+    liability_lines = [{"account_name": v["account_name"], "amount": str(v["amount"])} for v in liability_map.values()]
+    equity_lines = [{"account_name": v["account_name"], "amount": str(v["amount"])} for v in equity_map.values()]
+
+    return assets, liabilities, equity, asset_lines, liability_lines, equity_lines
 
 
 def _get_account_balances(
@@ -430,3 +520,12 @@ def _get_payments_for_bill(session: Session, bill) -> Decimal:
     for alloc in bill.allocated_to:
         total += Decimal(str(alloc.get("amount", 0)))
     return total
+
+
+def _get_contact_name(session: Session, contact_id: UUID) -> str:
+    from src.models import Contact
+
+    contact = session.get(Contact, contact_id)
+    if contact:
+        return contact.name
+    return "Unknown"

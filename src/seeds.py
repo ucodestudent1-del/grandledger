@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from uuid import UUID
 
 from sqlmodel import Session, select
 
@@ -21,19 +22,23 @@ from src.models import (
     Invoice,
     InvoiceLine,
     InvoiceStatus,
+    Payment,
+    PaymentType,
     User,
     UserRole,
 )
+from src.services.posting import JournalLineData, post_journal, post_journal_entry
 
 DEFAULT_COA: list[dict] = [
     {"code": "1000", "name": "Cash", "type": AccountType.ASSET},
     {"code": "1010", "name": "Accounts Receivable", "type": AccountType.ASSET},
     {"code": "1020", "name": "Inventory", "type": AccountType.ASSET},
     {"code": "1100", "name": "Accounts Payable", "type": AccountType.LIABILITY},
-    {"code": "1200", "name": "Credit Card", "type": AccountType.LIABILITY},
-    {"code": "1300", "name": "Loans Payable", "type": AccountType.LIABILITY},
-    {"code": "1400", "name": "Owner's Equity", "type": AccountType.EQUITY},
-    {"code": "1500", "name": "Retained Earnings", "type": AccountType.EQUITY},
+    {"code": "1200", "name": "Tax Payable", "type": AccountType.LIABILITY},
+    {"code": "1300", "name": "Credit Card", "type": AccountType.LIABILITY},
+    {"code": "1400", "name": "Loans Payable", "type": AccountType.LIABILITY},
+    {"code": "1500", "name": "Owner's Equity", "type": AccountType.EQUITY},
+    {"code": "1600", "name": "Retained Earnings", "type": AccountType.EQUITY},
     {"code": "4000", "name": "Sales Revenue", "type": AccountType.REVENUE},
     {"code": "4100", "name": "Service Revenue", "type": AccountType.REVENUE},
     {"code": "5000", "name": "Office Expenses", "type": AccountType.EXPENSE},
@@ -203,10 +208,169 @@ def seed_company(
         session.refresh(company)
         session.refresh(user)
 
+        # Now issue invoices and create payments using the posting function
+        _issue_demo_invoices(session, company, user)
+
+        # Post bills (issue = post for bills)
+        _post_demo_bills(session, company, user)
+
         print(f"Seeded company '{company_name}' with COA, bank accounts, contacts, invoices, and bills.")
         print("  Email: demo@grandledger.com")
         print("  Password: password123")
         return company, user
+
+
+def _get_account_by_code(session: Session, company_id: UUID, code: str) -> Account | None:
+    stmt = select(Account).where(
+        Account.company_id == company_id,
+        Account.code == code,
+    )
+    return session.exec(stmt).first()
+
+
+def _issue_demo_invoices(session: Session, company: Company, user: User) -> None:
+    """Issue draft invoices and create a payment for the first one."""
+    invoices = session.exec(
+        select(Invoice).where(Invoice.company_id == company.id)
+    ).all()
+
+    ar_account = _get_account_by_code(session, company.id, "1010")
+    revenue_account = _get_account_by_code(session, company.id, "4000")
+    tax_account = _get_account_by_code(session, company.id, "1200")
+    cash_account = _get_account_by_code(session, company.id, "1000")
+
+    if not ar_account or not revenue_account:
+        return
+
+    assert ar_account.id is not None
+    assert revenue_account.id is not None
+    assert user.id is not None
+
+    for idx, invoice in enumerate(invoices):
+        if invoice.status != InvoiceStatus.DRAFT:
+            continue
+
+        lines: list[JournalLineData] = [
+            JournalLineData(
+                account_id=ar_account.id,
+                description=f"Invoice {invoice.number}",
+                debit=invoice.total,
+                credit=Decimal("0"),
+            ),
+            JournalLineData(
+                account_id=revenue_account.id,
+                description=f"Invoice {invoice.number}",
+                debit=Decimal("0"),
+                credit=invoice.subtotal,
+            ),
+        ]
+        if invoice.tax_total > 0 and tax_account:
+            assert tax_account.id is not None
+            lines.append(
+                JournalLineData(
+                    account_id=tax_account.id,
+                    description=f"Tax on invoice {invoice.number}",
+                    debit=Decimal("0"),
+                    credit=invoice.tax_total,
+                )
+            )
+
+        je = post_journal(
+            company_id=company.id,
+            lines=lines,
+            description=f"Invoice {invoice.number} issued",
+            entry_date=invoice.issue_date or date(2026, 10, 1),
+            created_by=user.id,
+            source="invoice",
+            session=session,
+        )
+        assert je.id is not None
+        post_journal_entry(je.id, posted_by=user.id)
+
+        invoice.status = InvoiceStatus.ISSUED
+        invoice.journal_entry_id = je.id
+        session.add(invoice)
+
+        # Create a payment for the first invoice
+        if idx == 0 and cash_account:
+            payment = Payment(
+                company_id=company.id,
+                contact_id=invoice.contact_id,
+                type=PaymentType.RECEIPT,
+                amount=invoice.total,
+                payment_date=date(2026, 10, 5),
+                allocated_to=[{"invoice_id": str(invoice.id), "amount": float(invoice.total)}],
+                journal_entry_id=je.id,
+                created_by=user.id,
+            )
+            session.add(payment)
+
+    session.commit()
+
+
+def _post_demo_bills(session: Session, company: Company, user: User) -> None:
+    """Post draft bills."""
+    bills = session.exec(
+        select(Bill).where(Bill.company_id == company.id)
+    ).all()
+
+    ap_account = _get_account_by_code(session, company.id, "1100")
+    expense_account = _get_account_by_code(session, company.id, "5000")
+    tax_account = _get_account_by_code(session, company.id, "1200")
+
+    if not ap_account or not expense_account:
+        return
+
+    assert ap_account.id is not None
+    assert expense_account.id is not None
+    assert user.id is not None
+
+    for bill in bills:
+        if bill.status != BillStatus.DRAFT:
+            continue
+
+        lines: list[JournalLineData] = [
+            JournalLineData(
+                account_id=expense_account.id,
+                description=f"Bill {bill.number}",
+                debit=bill.subtotal,
+                credit=Decimal("0"),
+            ),
+            JournalLineData(
+                account_id=ap_account.id,
+                description=f"Bill {bill.number}",
+                debit=Decimal("0"),
+                credit=bill.total,
+            ),
+        ]
+        if bill.tax_total > 0 and tax_account:
+            assert tax_account.id is not None
+            lines.append(
+                JournalLineData(
+                    account_id=tax_account.id,
+                    description=f"Tax on bill {bill.number}",
+                    debit=bill.tax_total,
+                    credit=Decimal("0"),
+                )
+            )
+
+        je = post_journal(
+            company_id=company.id,
+            lines=lines,
+            description=f"Bill {bill.number} posted",
+            entry_date=bill.issue_date or date(2026, 10, 1),
+            created_by=user.id,
+            source="bill",
+            session=session,
+        )
+        assert je.id is not None
+        post_journal_entry(je.id, posted_by=user.id)
+
+        bill.status = BillStatus.POSTED
+        bill.journal_entry_id = je.id
+        session.add(bill)
+
+    session.commit()
 
 
 def clear_seed() -> None:

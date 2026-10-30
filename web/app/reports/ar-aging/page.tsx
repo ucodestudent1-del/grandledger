@@ -6,15 +6,22 @@ import { useAuth, formatCurrency } from "@/app/hooks/useAuth"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
 
-interface AgingBucket {
+interface Bucket {
   [key: string]: string
+}
+
+interface AgingContact {
+  contact_name: string
+  total_due: string
+  buckets: Bucket
 }
 
 interface AgingReport {
   report: string
   as_of: string
   total_outstanding: string
-  buckets: AgingBucket
+  buckets: Bucket
+  contacts?: AgingContact[]
 }
 
 export default function ARAgingPage() {
@@ -74,15 +81,12 @@ export default function ARAgingPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {report && (
-        <div className="border rounded-lg p-6 space-y-4">
-          <h2 className="text-xl font-semibold">{report.report}</h2>
-          <p className="text-sm text-muted-foreground">As of: {report.as_of}</p>
-
+        <div className="space-y-4">
           <div className="text-2xl font-bold">
             Total Outstanding: {formatCurrency(report.total_outstanding)}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {bucketOrder.map((bucket) => (
               <div key={bucket} className="border rounded-lg p-4 text-center">
                 <div className="font-medium text-sm text-muted-foreground">{bucket}</div>
@@ -92,6 +96,35 @@ export default function ARAgingPage() {
               </div>
             ))}
           </div>
+
+          {report.contacts && report.contacts.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="text-left p-3">Customer</th>
+                    {bucketOrder.map((b) => (
+                      <th key={b} className="text-right p-3 text-xs">{b}</th>
+                    ))}
+                    <th className="text-right p-3">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.contacts.map((c, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="p-3">{c.contact_name}</td>
+                      {bucketOrder.map((b) => (
+                        <td key={b} className="p-3 text-right text-sm font-mono">
+                          {formatCurrency(c.buckets[b] || "0")}
+                        </td>
+                      ))}
+                      <td className="p-3 text-right font-bold">{formatCurrency(c.total_due)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

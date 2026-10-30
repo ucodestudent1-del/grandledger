@@ -14,8 +14,8 @@ web/.next
 web/.env.local
 web/.env
 web/out
-web/.env.local
 web/.eslintrc.json
+web/pnpm-lock.yaml
 docker-compose*.yml
 Dockerfile
 .kilo
