@@ -14,14 +14,14 @@
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/react-slot": "^1.1.2",
     "@tanstack/react-query": "^5.56.11",
-    "clsx": "^2.1.0",
     "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.0",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.456.0",
     "next": "^15.5.0",
-    "sonner": "^2.0.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^2.5.3"
   },
   "devDependencies": {
