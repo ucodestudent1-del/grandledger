@@ -16,10 +16,24 @@ from sqlmodel import Session, select
 from src.core.middleware import log_audit
 from src.models import (
     Account,
+    Company,
     JournalEntry,
     JournalEntryStatus,
     JournalLine,
 )
+
+
+def validate_period_not_locked(
+    session: Session, company_id: UUID, entry_date: date
+) -> None:
+    """Check that the entry date falls outside any locked period."""
+    company = session.get(Company, company_id)
+    if company and company.locked_period_end and entry_date <= company.locked_period_end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Period is locked: entries on or before {company.locked_period_end} cannot be modified. "
+            f"Unlock in Settings > Company before proceeding.",
+        )
 
 
 class JournalLineData:
@@ -108,6 +122,7 @@ def post_journal(
     try:
         validate_lines_balanced(lines)
         validate_accounts_exist(session, company_id, lines)
+        validate_period_not_locked(session, company_id, entry_date)
 
         number = generate_journal_number(session, company_id, entry_date)
 
@@ -179,6 +194,8 @@ def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = No
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot post a voided journal entry",
             )
+
+        validate_period_not_locked(session, je.company_id, je.entry_date)
 
         before_state = {"status": je.status}
         je.status = JournalEntryStatus.POSTED

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/app/hooks/useAuth"
 import { Company, User } from "@/types/api"
-import { Save } from "lucide-react"
+import { Save, Lock, Unlock } from "lucide-react"
+import StatusBadge from "@/components/ui/StatusBadge"
 
 export default function CompanySettingsPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -12,6 +13,8 @@ export default function CompanySettingsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [lockingPeriod, setLockingPeriod] = useState(false)
+  const [periodLockDate, setPeriodLockDate] = useState("")
   const [editForm, setEditForm] = useState({ name: "", currency: "USD", financial_year_start: "" })
 
   useEffect(() => {
@@ -29,6 +32,9 @@ export default function CompanySettingsPage() {
             currency: companies[0].currency,
             financial_year_start: companies[0].financial_year_start || "",
           })
+          if (companies[0].locked_period_end) {
+            setPeriodLockDate(companies[0].locked_period_end.split("T")[0])
+          }
         }
         setUsers(usersRes || [])
       } catch (err) {
@@ -50,6 +56,20 @@ export default function CompanySettingsPage() {
       console.error("Failed to save:", err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePeriodLock = async (lock: boolean) => {
+    if (!company) return
+    setLockingPeriod(true)
+    try {
+      const payload = lock ? { locked_period_end: periodLockDate } : { locked_period_end: null }
+      const updated = await api.patch<Company>(`/companies/${company.id}/period-lock`, payload)
+      setCompany(updated)
+    } catch (err: any) {
+      console.error("Failed to update period lock:", err)
+    } finally {
+      setLockingPeriod(false)
     }
   }
 
@@ -105,6 +125,51 @@ export default function CompanySettingsPage() {
           </button>
         </div>
       )}
+
+      <div className="border rounded-lg p-6 space-y-4">
+        <h2 className="text-lg font-semibold">Period Locking</h2>
+        <p className="text-sm text-muted-foreground">
+          Lock accounting periods to prevent changes to closed periods. Once locked, journal entries
+          on or before the lock date cannot be modified.
+        </p>
+
+        {company?.locked_period_end ? (
+          <div className="flex items-center gap-4">
+            <StatusBadge status="void">Period Locked</StatusBadge>
+            <span className="text-sm">
+              Locked through: {new Date(company.locked_period_end).toLocaleDateString()}
+            </span>
+            <button
+              onClick={() => handlePeriodLock(false)}
+              disabled={lockingPeriod}
+              className="border border-input px-3 py-1 rounded text-sm flex items-center gap-1"
+            >
+              <Unlock className="h-3 w-3" />
+              {lockingPeriod ? "Unlocking..." : "Unlock Period"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Lock Through Date</label>
+              <input
+                type="date"
+                value={periodLockDate}
+                onChange={(e) => setPeriodLockDate(e.target.value)}
+                className="rounded-md border border-input px-3 py-2 bg-background"
+              />
+            </div>
+            <button
+              onClick={() => handlePeriodLock(true)}
+              disabled={lockingPeriod || !periodLockDate}
+              className="border border-input px-3 py-1 rounded text-sm flex items-center gap-1 mb-[2px]"
+            >
+              <Lock className="h-3 w-3" />
+              {lockingPeriod ? "Locking..." : "Lock Period"}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="border rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-3">Team Members</h2>

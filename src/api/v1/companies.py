@@ -1,13 +1,14 @@
 """Companies endpoints."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from src.core.middleware import require_role
+from src.core.middleware import log_audit, require_role
 from src.models import Company, User
 from src.schemas import CompanyCreate, CompanyRead
 
@@ -94,4 +95,63 @@ def get_company(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Company not found",
         )
+    return company
+
+
+class PeriodLockRequest(BaseModel):
+    locked_period_end: date | None = None
+
+
+@router.get("/companies/{company_id}/period-lock", response_model=CompanyRead)
+def get_period_lock(
+    company_id: UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role("owner", "accountant")),
+) -> CompanyRead:
+    """Get the current period lock status for the company."""
+    company = session.get(Company, company_id)
+    if not company or company.id != user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+    return company
+
+
+@router.patch("/companies/{company_id}/period-lock", response_model=CompanyRead)
+def set_period_lock(
+    company_id: UUID,
+    payload: PeriodLockRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role("owner", "accountant")),
+) -> CompanyRead:
+    """Lock or unlock a period. Set locked_period_end to lock; set to null to unlock."""
+    company = session.get(Company, company_id)
+    if not company or company.id != user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    before = {"locked_period_end": str(company.locked_period_end) if company.locked_period_end else None}
+    company.locked_period_end = payload.locked_period_end
+    company.updated_at = datetime.now(UTC)
+    session.add(company)
+    session.commit()
+    session.refresh(company)
+
+    ip = request.client.host if request.client else None
+    log_audit(
+        company_id=company_id,
+        user_id=user.id,
+        action="period_lock.update",
+        entity_type="Company",
+        entity_id=company_id,
+        before=before,
+        after={"locked_period_end": str(company.locked_period_end) if company.locked_period_end else None},
+        ip_address=ip,
+    )
+
     return company

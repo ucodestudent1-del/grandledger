@@ -69,6 +69,7 @@ class CompanyRead(BaseModel):
     slug: str
     currency: str
     financial_year_start: date | None = None
+    locked_period_end: date | None = None
 
 
 class AccountCreate(BaseModel):

@@ -5,8 +5,8 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-COPY web/package.json ./
-RUN npm install --no-audit --no-fund --legacy-peer-deps
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
 COPY web/ ./
 # Build the Next.js app and export as static files
@@ -39,7 +39,8 @@ COPY . .
 
 # Next.js static export output
 COPY --from=frontend-builder /app/out ./web/out
+COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/entrypoint.sh"]

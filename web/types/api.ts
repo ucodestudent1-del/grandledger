@@ -6,6 +6,7 @@ export interface Company {
   slug: string
   currency: string
   financial_year_start?: string
+  locked_period_end?: string | null
   created_at: string
   updated_at: string
 }

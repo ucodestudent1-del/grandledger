@@ -28,7 +28,8 @@ services:
   api:
     build: .
     container_name: grandledger-api
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    entrypoint: sh
+    command: ["-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"]
     env_file: .env
     volumes:
       - .:/app

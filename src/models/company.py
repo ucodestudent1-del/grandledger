@@ -32,6 +32,7 @@ class Company(SQLModel, table=True):
     slug: str = Field(max_length=100, unique=True, index=True)
     currency: str = Field(default="USD", max_length=3)
     financial_year_start: date | None = Field(default=None)
+    locked_period_end: date | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
