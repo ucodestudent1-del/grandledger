@@ -89,6 +89,8 @@ def test_user(db_session, test_company):
         name="Test User",
         role="owner",
         password_hash=get_password_hash("Password123"),
+        is_verified=True,
+        is_active=True,
     )
     db_session.add(user)
     db_session.commit()

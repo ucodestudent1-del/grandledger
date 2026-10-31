@@ -524,3 +524,46 @@ def _get_contact_name(session: Session, contact_id: UUID) -> str:
     if contact:
         return contact.name
     return "Unknown"
+
+
+@router.post("/reports/trial-balance/validate")
+def validate_trial_balance(
+    request: Request,
+    payload: ReportRequest,
+    session: Session = Depends(get_db),
+    company_id: UUID = Depends(get_company_id),
+) -> dict:
+    """Validate that debits equal credits for a given period."""
+    stmt = (
+        select(JournalEntry)
+        .where(
+            JournalEntry.company_id == company_id,
+            JournalEntry.status == JournalEntryStatus.POSTED,
+            JournalEntry.entry_date >= payload.start_date,
+            JournalEntry.entry_date <= payload.end_date,
+        )
+        .order_by(JournalEntry.entry_date)
+    )
+    entries = session.exec(stmt).all()
+
+    total_debit = Decimal("0")
+    total_credit = Decimal("0")
+    for entry in entries:
+        for line in entry.lines:
+            total_debit += line.debit
+            total_credit += line.credit
+
+    is_balanced = total_debit == total_credit
+
+    return {
+        "report": "Trial Balance Validation",
+        "period": {
+            "start_date": payload.start_date.isoformat(),
+            "end_date": payload.end_date.isoformat(),
+        },
+        "entries_checked": len(entries),
+        "total_debits": str(total_debit),
+        "total_credits": str(total_credit),
+        "is_balanced": is_balanced,
+        "validation": "PASSED" if is_balanced else "FAILED: debits != credits",
+    }

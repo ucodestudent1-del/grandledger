@@ -38,5 +38,19 @@ class Settings(BaseSettings):
     PASSWORD_MIN_LENGTH: int = 8
     BCRYPT_ROUNDS: int = 12
 
+    # Email / SMTP
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASS: str | None = None
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM: str = "noreply@grandledger.app"
+
+    # Email verification
+    VERIFY_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    # Password reset
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
+
 
 settings = Settings()

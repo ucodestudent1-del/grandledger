@@ -8,7 +8,9 @@ from src.models.contact import Contact, ContactType
 from src.models.file import File
 from src.models.invoice import Invoice, InvoiceLine, InvoiceStatus
 from src.models.journal import JournalEntry, JournalEntryStatus, JournalLine
+from src.models.password_reset import PasswordResetToken
 from src.models.payment import Payment, PaymentType
+from src.models.session import ActiveSession
 from src.models.user import User, UserRole
 
 __all__ = [
@@ -33,6 +35,8 @@ __all__ = [
     "JournalLine",
     "Payment",
     "PaymentType",
+    "ActiveSession",
+    "PasswordResetToken",
     "User",
     "UserRole",
 ]

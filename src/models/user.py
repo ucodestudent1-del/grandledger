@@ -10,6 +10,8 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from src.models.company import Company
     from src.models.journal import JournalEntry
+    from src.models.password_reset import PasswordResetToken
+    from src.models.session import ActiveSession
 
 
 def _utcnow() -> datetime:
@@ -34,17 +36,21 @@ class User(SQLModel, table=True):
     password_hash: str = Field(max_length=255)
     google_id: str | None = Field(default=None, max_length=255)
     is_external_accountant: bool = Field(default=False)
+    is_verified: bool = Field(default=False)
+    is_active: bool = Field(default=True)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
-    company: "Company" = Relationship(back_populates="users")  # type: ignore[call-overload]
+    company: "Company" = Relationship(back_populates="users")
+    active_sessions: list["ActiveSession"] = Relationship(back_populates="user")
+    password_reset_tokens: list["PasswordResetToken"] = Relationship(back_populates="user")
 
-    journal_entries_posted: list["JournalEntry"] = Relationship(  # type: ignore[call-overload]
+    journal_entries_posted: list["JournalEntry"] = Relationship(
         back_populates="posted_by_user",
         sa_relationship_kwargs={"foreign_keys": "JournalEntry.posted_by"},
     )
-    journal_entries_created: list["JournalEntry"] = Relationship(  # type: ignore[call-overload]
+    journal_entries_created: list["JournalEntry"] = Relationship(
         back_populates="created_by_user",
         sa_relationship_kwargs={"foreign_keys": "JournalEntry.created_by"},
     )

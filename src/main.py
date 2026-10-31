@@ -16,11 +16,17 @@ from sqlmodel import Session
 
 from src.api import api_router
 from src.config import settings
+from src.core.logging import configure_logging
 from src.core.rate_limiter import limiter
 from src.core.security import decode_access_token
 from src.models import User
 
 logger = logging.getLogger("grandledger")
+
+
+def _generate_request_id() -> str:
+    from uuid import uuid4
+    return str(uuid4())
 
 origins: list[str] = []
 if settings.DEBUG:
@@ -36,6 +42,7 @@ async def lifespan(app: FastAPI) -> Any:
         from src.database import init_db
 
         init_db()
+    configure_logging()
     logger.info("Starting GrandLedger API (env=%s)", settings.ENVIRONMENT)
     yield
     logger.info("Shutting down GrandLedger API")
@@ -76,6 +83,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
 @app.middleware("http")
 async def tenant_and_auth_middleware(request: Request, call_next: Any) -> Any:
     """Middleware to set tenant context and authenticate requests."""
+    request_id = request.headers.get("X-Request-ID", _generate_request_id())
+    request.state.request_id = request_id
+
     if request.url.path.startswith("/docs") or request.url.path.startswith("/redoc"):
         return await call_next(request)
 
@@ -111,11 +121,56 @@ async def tenant_and_auth_middleware(request: Request, call_next: Any) -> Any:
 @app.get("/health")
 def health_check() -> dict:
     """Health check endpoint for load balancers and monitoring."""
+    from sqlmodel import text
+
+    import src.database as db_module
+
+    checks: dict[str, Any] = {"database": "ok", "redis": "ok"}
+
+    try:
+        with Session(db_module.engine) as session:
+            session.exec(text("SELECT 1"))  # type: ignore
+    except Exception:
+        checks["database"] = "error"
+        return {
+            "status": "unhealthy",
+            "version": "1.1.0",
+            "environment": settings.ENVIRONMENT,
+            "checks": checks,
+        }
+
+    try:
+        from src.core.rate_limiter import limiter
+
+        if limiter and hasattr(limiter, "_client"):
+            limiter._client.ping()
+    except Exception:
+        checks["redis"] = "degraded"
+
     return {
         "status": "healthy",
         "version": "1.1.0",
         "environment": settings.ENVIRONMENT,
+        "checks": checks,
     }
+
+
+@app.get("/metrics")
+def metrics() -> Any:
+    """Prometheus metrics endpoint."""
+    try:
+        from fastapi.responses import Response
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST,
+        )
+    except ImportError:
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Prometheus client not installed"},
+        )
 
 
 app.include_router(api_router)

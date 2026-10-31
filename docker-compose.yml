@@ -18,12 +18,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: grandledger-redis
     ports:
       - "6379:6379"
+    restart: unless-stopped
 
   api:
     build: .
@@ -31,18 +33,17 @@ services:
     env_file: .env
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgres@postgres:5432/grandledger
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis@redis:6379/0
     volumes:
       - .:/app
     ports:
       - "8000:8000"
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-    # For dev with hot reload, override:
-    # command: ["sh", "-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"]
 
   web:
     build:

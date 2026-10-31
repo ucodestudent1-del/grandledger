@@ -99,7 +99,7 @@ def post_journal_endpoint(
 ) -> JournalEntryRead:
     user: User = request.state.user
     ip = request.client.host if request.client else None
-    je = post_journal_entry(je_id, posted_by=user.id, ip_address=ip)
+    je = post_journal_entry(je_id, posted_by=user.id, ip_address=ip, company_id=company_id)
     session.refresh(je)
     return _build_read(je)
 
@@ -113,7 +113,7 @@ def void_journal(
 ) -> JournalEntryRead:
     user: User = request.state.user
     ip = request.client.host if request.client else None
-    je = void_journal_entry(je_id, voided_by=user.id, ip_address=ip)
+    je = void_journal_entry(je_id, voided_by=user.id, ip_address=ip, company_id=company_id)
     session.refresh(je)
     return _build_read(je)
 
@@ -133,6 +133,7 @@ def reverse_journal(
         entry_date=datetime.now(UTC).date(),
         ip_address=ip,
         session=session,
+        company_id=company_id,
     )
     session.refresh(je)
     return _build_read(je)

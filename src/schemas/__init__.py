@@ -32,6 +32,8 @@ class UserRead(BaseModel):
     name: str
     role: str
     is_external_accountant: bool = False
+    is_verified: bool = False
+    is_active: bool = True
 
 
 class LoginRequest(BaseModel):
@@ -52,6 +54,27 @@ class GoogleSignupRequest(BaseModel):
     company_name: str | None = None
     company_slug: str | None = None
     role: str | None = None
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+class SessionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    user_agent: str | None = None
+    ip_address: str | None = None
+    created_at: datetime
+    expires_at: datetime
+    revoked: bool
 
 
 class CompanyCreate(BaseModel):
@@ -384,6 +407,9 @@ __all__ = [
     "UserRead",
     "LoginRequest",
     "RefreshRequest",
+    "PasswordResetRequest",
+    "PasswordResetConfirm",
+    "SessionRead",
     "CompanyCreate",
     "CompanyUpdate",
     "CompanyRead",

@@ -170,7 +170,7 @@ def post_journal(
             session.close()
 
 
-def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = None) -> JournalEntry:
+def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = None, company_id: UUID | None = None) -> JournalEntry:
     """Transition a draft journal entry to posted status.
 
     The DB trigger enforces balance on posted entries.
@@ -180,6 +180,11 @@ def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = No
     with Session(db_engine) as session:
         je = session.get(JournalEntry, je_id)
         if not je:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Journal entry not found",
+            )
+        if company_id and je.company_id != company_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Journal entry not found",
@@ -218,13 +223,18 @@ def post_journal_entry(je_id: UUID, posted_by: UUID, ip_address: str | None = No
 
         return je
 
-def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = None) -> JournalEntry:
+def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = None, company_id: UUID | None = None) -> JournalEntry:
     """Void a journal entry (must be posted)."""
     from src.database import engine as db_engine
 
     with Session(db_engine) as session:
         je = session.get(JournalEntry, je_id)
         if not je:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Journal entry not found",
+            )
+        if company_id and je.company_id != company_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Journal entry not found",
@@ -269,6 +279,7 @@ def reverse_journal_entry(
     entry_date: date | None = None,
     ip_address: str | None = None,
     session: Session | None = None,
+    company_id: UUID | None = None,
 ) -> JournalEntry:
     """Create a reversing entry that negates all lines of the original.
 
@@ -285,6 +296,11 @@ def reverse_journal_entry(
     try:
         je = session.get(JournalEntry, je_id)
         if not je:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Journal entry not found",
+            )
+        if company_id and je.company_id != company_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Journal entry not found",

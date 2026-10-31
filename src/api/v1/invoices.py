@@ -253,7 +253,7 @@ def issue_invoice(
         session=session,
         ip_address=ip,
     )
-    post_journal_entry(je.id, posted_by=user.id, ip_address=ip)
+    post_journal_entry(je.id, posted_by=user.id, ip_address=ip, company_id=company_id)
 
     invoice.status = InvoiceStatus.ISSUED
     invoice.journal_entry_id = je.id
