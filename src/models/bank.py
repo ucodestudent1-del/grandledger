@@ -33,7 +33,7 @@ class BankAccount(SQLModel, table=True):
     currency: str = Field(default="USD", max_length=3)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
     company: "Company" = Relationship(back_populates="bank_accounts")  # type: ignore[call-overload]
     transactions: list["BankTransaction"] = Relationship(  # type: ignore[call-overload]

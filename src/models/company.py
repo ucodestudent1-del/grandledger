@@ -35,7 +35,7 @@ class Company(SQLModel, table=True):
     locked_period_end: date | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
     users: list["User"] = Relationship(back_populates="company", sa_relationship_kwargs={"lazy": "selectin"})  # type: ignore[call-overload]
     accounts: list["Account"] = Relationship(back_populates="company")  # type: ignore[call-overload]

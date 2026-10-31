@@ -59,6 +59,10 @@ class TestAuthMe:
 
 
 class TestCompanies:
+    def test_list_companies_requires_auth(self, client):
+        response = client.get("/api/v1/companies")
+        assert response.status_code == 401
+
     def test_list_companies_empty(self, client, auth_headers):
         response = client.get("/api/v1/companies", headers=auth_headers)
         assert response.status_code == 200
@@ -69,6 +73,10 @@ class TestCompanies:
         assert response.status_code == 200
         companies = response.json()
         assert len(companies) >= 1
+
+    def test_get_company_requires_auth(self, client):
+        response = client.get("/api/v1/companies/00000000-0000-0000-0000-000000000000")
+        assert response.status_code == 401
 
 
 class TestAccounts:

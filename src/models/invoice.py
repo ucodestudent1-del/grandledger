@@ -44,7 +44,7 @@ class Invoice(SQLModel, table=True):
     created_by: UUID = Field(sa_column=Column(Uuid(), ForeignKey("users.id")))
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
     company: "Company" = Relationship(back_populates="invoices")  # type: ignore[call-overload]
     contact: "Contact" = Relationship(back_populates="invoices")  # type: ignore[call-overload]

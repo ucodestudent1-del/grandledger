@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from src.core.middleware import get_db, log_audit, require_role
+from src.core.middleware import get_company_id, get_db, log_audit, require_role
 from src.models import Company, User
 from src.schemas import CompanyCreate, CompanyRead, CompanyUpdate
 
@@ -71,19 +71,29 @@ def update_company(
     return company
 
 
-@router.get("/companies")
+@router.get("/companies", response_model=list[CompanyRead])
 def list_companies(
+    request: Request,
     session: Session = Depends(get_db),
+    company_id: UUID = Depends(get_company_id),
 ) -> list[CompanyRead]:
-    companies = session.exec(select(Company)).all()
+    stmt = select(Company).where(Company.id == company_id)
+    companies = session.exec(stmt).all()
     return companies
 
 
 @router.get("/companies/{company_id}", response_model=CompanyRead)
 def get_company(
     company_id: UUID,
+    request: Request,
     session: Session = Depends(get_db),
+    user: User = Depends(require_role("owner", "accountant", "bookkeeper", "readonly")),
 ) -> CompanyRead:
+    if user.company_id != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own company",
+        )
     company = session.get(Company, company_id)
     if not company:
         raise HTTPException(

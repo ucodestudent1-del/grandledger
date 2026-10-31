@@ -240,6 +240,8 @@ def void_journal_entry(je_id: UUID, voided_by: UUID, ip_address: str | None = No
                 detail="Journal entry already voided",
             )
 
+        validate_period_not_locked(session, je.company_id, je.entry_date)
+
         before_state = {"status": je.status}
         je.status = JournalEntryStatus.VOID
         je.updated_at = datetime.now(UTC)
@@ -293,6 +295,22 @@ def reverse_journal_entry(
                 detail="Only posted entries can be reversed",
             )
 
+        reversal_date = entry_date or je.entry_date
+        validate_period_not_locked(session, je.company_id, reversal_date)
+
+        existing_reversal = session.exec(
+            select(JournalEntry).where(
+                JournalEntry.company_id == je.company_id,
+                JournalEntry.source == "reversal",
+                JournalEntry.description.like(f"Reversal of {je.number}%"),
+            )
+        ).first()
+        if existing_reversal:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Journal entry {je.number} has already been reversed",
+            )
+
         stmt = select(JournalLine).where(JournalLine.journal_entry_id == je_id)
         original_lines = session.exec(stmt).all()
         if not original_lines:
@@ -311,7 +329,6 @@ def reverse_journal_entry(
             for ln in original_lines
         ]
 
-        reversal_date = entry_date or je.entry_date
         number = generate_journal_number(session, je.company_id, reversal_date)
 
         reversal = JournalEntry(

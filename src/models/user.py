@@ -36,7 +36,7 @@ class User(SQLModel, table=True):
     is_external_accountant: bool = Field(default=False)
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
     company: "Company" = Relationship(back_populates="users")  # type: ignore[call-overload]
 

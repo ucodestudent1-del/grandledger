@@ -34,7 +34,7 @@ class Contact(SQLModel, table=True):
     address: dict | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=_utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=_utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=_utcnow, nullable=False, sa_column_kwargs={"onupdate": _utcnow})
 
     company: "Company" = Relationship(back_populates="contacts")  # type: ignore[call-overload]
     invoices: list["Invoice"] = Relationship(back_populates="contact")  # type: ignore[call-overload]
