@@ -36,10 +36,10 @@ services:
   api:
     build: .
     container_name: grandledger-api
-    env_file:
-      - .env
+    env_file: .env.production
+    # Override DATABASE_URL and REDIS_URL for Docker networking
     environment:
-      - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/grandledger
+      - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/grandledger
       - REDIS_URL=redis://redis:6379/0
     image: grandledger/api:latest
     expose:

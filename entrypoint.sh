@@ -2,27 +2,26 @@
 set -e
 
 echo "Starting GrandLedger API..."
+echo "DATABASE_URL: ${DATABASE_URL:-not set}"
+echo "REDIS_URL: ${REDIS_URL:-not set}"
 
-# Run database migrations (don't fail if migration already applied or tables exist)
+# Run database migrations (retry on connection failure)
 echo "Running migrations..."
-if alembic upgrade head 2>&1; then
-    echo "Migrations completed successfully"
-else
-    echo "WARNING: Migration encountered an issue, attempting to continue..."
-    # Check if DB is reachable
-    if python -c "from sqlmodel import Session
-from src.database import engine
-from sqlmodel import text
-session = Session(engine)
-session.exec(text('SELECT 1'))
-session.close()
-print('DB OK')" 2>/dev/null; then
-        echo "Database is reachable, proceeding with startup"
-    else
-        echo "ERROR: Database not reachable, exiting"
+MAX_ATTEMPTS=30
+ATTEMPT=0
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    ATTEMPT=$((ATTEMPT + 1))
+    if alembic upgrade head 2>&1; then
+        echo "Migrations completed successfully"
+        break
+    fi
+    if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+        echo "ERROR: Migration failed after $MAX_ATTEMPTS attempts"
         exit 1
     fi
-fi
+    echo "Waiting for database (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
+    sleep 2
+done
 
 echo "Starting uvicorn..."
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000
