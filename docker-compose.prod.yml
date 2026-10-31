@@ -37,7 +37,7 @@ services:
     build: .
     container_name: grandledger-api
     environment:
-      - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/grandledger
+      - DATABASE_URL=postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/grandledger
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - JWT_ALGORITHM=${JWT_ALGORITHM}

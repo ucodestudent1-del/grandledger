@@ -32,6 +32,7 @@ services:
     container_name: grandledger-api
     env_file: .env
     environment:
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/grandledger
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - .:/app

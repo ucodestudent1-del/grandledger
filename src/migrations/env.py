@@ -24,7 +24,10 @@ target_metadata: MetaData = SQLModel.metadata
 
 
 def get_url() -> str:
-    return settings.DATABASE_URL
+    url = settings.DATABASE_URL
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:

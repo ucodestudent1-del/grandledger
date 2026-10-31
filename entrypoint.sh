@@ -12,6 +12,12 @@ if echo "${DATABASE_URL:-}" | grep -q "localhost\|127.0.0.1\|::1"; then
     echo "DATABASE_URL (corrected): $DATABASE_URL"
 fi
 
+# Normalize postgresql:// to postgresql+psycopg:// for psycopg v3 driver
+if echo "${DATABASE_URL:-}" | grep -q "^postgresql://"; then
+    export DATABASE_URL=$(echo "$DATABASE_URL" | sed 's|^postgresql://|postgresql+psycopg://|')
+    echo "DATABASE_URL (driver normalized): $DATABASE_URL"
+fi
+
 # Force correct REDIS_URL for Docker networking if localhost is detected
 if echo "${REDIS_URL:-}" | grep -q "localhost\|127.0.0.1\|::1"; then
     echo "WARNING: REDIS_URL contains localhost - replacing with Docker service name"
