@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import JournalEntry, User
 from src.schemas import JournalEntryCreate, JournalEntryRead
@@ -22,16 +22,11 @@ from src.services.posting import (
 router = APIRouter(tags=["journals"])
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.post("/journals", response_model=JournalEntryRead)
 def create_journal(
     payload: JournalEntryCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> JournalEntryRead:
     user: User = request.state.user
@@ -64,7 +59,7 @@ def create_journal(
 @router.get("/journals", response_model=list[JournalEntryRead])
 def list_journals(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
     page: int | None = None,
@@ -83,7 +78,7 @@ def list_journals(
 def get_journal(
     je_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> JournalEntryRead:
     je = session.get(JournalEntry, je_id)
@@ -99,7 +94,7 @@ def get_journal(
 def post_journal_endpoint(
     je_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> JournalEntryRead:
     user: User = request.state.user
@@ -113,7 +108,7 @@ def post_journal_endpoint(
 def void_journal(
     je_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> JournalEntryRead:
     user: User = request.state.user
@@ -127,7 +122,7 @@ def void_journal(
 def reverse_journal(
     je_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> JournalEntryRead:
     user: User = request.state.user
@@ -141,6 +136,46 @@ def reverse_journal(
     )
     session.refresh(je)
     return _build_read(je)
+
+
+@router.delete("/journals/{je_id}", response_model=JournalEntryRead)
+def delete_journal(
+    je_id: UUID,
+    request: Request,
+    session: Session = Depends(get_db),
+    company_id: UUID = Depends(get_company_id),
+) -> JournalEntryRead:
+    user: User = request.state.user
+    ip = request.client.host if request.client else None
+    je = session.get(JournalEntry, je_id)
+    if not je or je.company_id != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found",
+        )
+    if je.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only draft journal entries can be deleted",
+        )
+
+    from src.core.middleware import log_audit
+
+    journal_data = _build_read(je)
+    session.delete(je)
+    session.commit()
+
+    log_audit(
+        company_id=company_id,
+        user_id=user.id,
+        action="journal_entry.delete",
+        entity_type="JournalEntry",
+        entity_id=je_id,
+        before={"id": str(je_id), "number": je.number, "status": je.status},
+        ip_address=ip,
+    )
+
+    return journal_data
 
 
 def _build_read(je: JournalEntry) -> JournalEntryRead:

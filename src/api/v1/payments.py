@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import (
     Account,
@@ -25,16 +25,11 @@ from src.services.posting import JournalLineData, post_journal, post_journal_ent
 router = APIRouter(tags=["payments"])
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.post("/payments", response_model=PaymentRead)
 def create_payment(
     payload: PaymentCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> PaymentRead:
     user: User = request.state.user
@@ -132,7 +127,7 @@ def create_payment(
 @router.get("/payments", response_model=list[PaymentRead])
 def list_payments(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     payment_type: str | None = None,
     contact_id: UUID | None = None,
@@ -154,7 +149,7 @@ def list_payments(
 def get_payment(
     payment_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> PaymentRead:
     payment = session.get(Payment, payment_id)

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
 from src.config import settings
-from src.core.middleware import get_company_id, log_audit
+from src.core.middleware import get_company_id, get_db, log_audit
 from src.core.rate_limiter import limiter as shared_limiter
 from src.core.security import (
     create_access_token,
@@ -33,17 +33,12 @@ _signup_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "5/minut
 _login_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "10/minute"
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.post("/auth/signup", response_model=Token)
 @shared_limiter.limit(_signup_limit)
 def signup(
     payload: UserCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> Token:
     valid, msg = validate_password_strength(payload.password)
     if not valid:
@@ -110,7 +105,7 @@ def signup(
 def login(
     payload: LoginRequest,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> Token:
     user = session.exec(select(User).where(User.email == payload.email)).first()
     if not user or not verify_password(payload.password, user.password_hash):
@@ -130,7 +125,7 @@ def login(
 def refresh(
     payload: RefreshRequest,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> Token:
     data = decode_refresh_token(payload.refresh_token)
     if not data:
@@ -156,7 +151,7 @@ def logout(request: Request) -> dict:
 
 
 @router.get("/auth/me", response_model=UserRead)
-def me(request: Request, session: Session = Depends(get_session)) -> UserRead:
+def me(request: Request, session: Session = Depends(get_db)) -> UserRead:
     user_id = request.state.user.id if request.state.user else None
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -169,7 +164,7 @@ def me(request: Request, session: Session = Depends(get_session)) -> UserRead:
 def google_login(
     payload: GoogleLoginRequest,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> Token:
     from google.auth import exceptions as google_exceptions
     from google.oauth2 import id_token as google_id_token
@@ -220,7 +215,7 @@ def google_login(
 def google_signup(
     payload: GoogleSignupRequest,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> Token:
     from google.auth import exceptions as google_exceptions
     from google.oauth2 import id_token as google_id_token
@@ -318,7 +313,7 @@ def google_signup(
 @shared_limiter.limit("1000/minute")
 def list_users(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> list[UserRead]:
     user: User = request.state.user
@@ -333,7 +328,7 @@ def list_users(
 def invite_user(
     payload: UserCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> UserRead:
     user: User = request.state.user

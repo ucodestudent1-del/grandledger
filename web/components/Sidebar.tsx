@@ -64,7 +64,7 @@ export default function Sidebar() {
             <Link
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-acent-foreground transition-colors",
+                "flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors",
                 pathname === item.href && "bg-accent text-accent-foreground",
               )}
             >

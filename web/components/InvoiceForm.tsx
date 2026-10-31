@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import { useAuth, formatCurrency } from "@/app/hooks/useAuth"
 import { Invoice, Contact } from "@/types/api"
@@ -31,11 +31,10 @@ export default function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     try {
       const [contactsRes, accountsRes] = await Promise.all([
         api.get<Contact[]>("/contacts?type=customer"),
-        api.get<{ id: string; name: string; code: string }[]>("/accounts"),
+        api.get<{ id: string; name: string; code: string; type: string }[]>("/accounts"),
       ])
       setContacts(contactsRes)
-      const revenueAccounts = accountsRes.filter((a: any) => a.type === "revenue" || a.type === "expense" || a.type === "asset")
-      setAccounts(accountsRes.filter((a: any) => a.type !== "revenue") as any)
+      setAccounts(accountsRes.filter((a) => a.type !== "revenue"))
     } catch (err) {
       console.error("Failed to fetch:", err)
     }
@@ -63,12 +62,10 @@ export default function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     }
   }
 
-  useState(() => {
-    if (isAuthenticated) {
-      fetchData()
-      if (invoiceId) fetchInvoice()
-    }
-  })
+  useEffect(() => {
+    fetchData()
+    if (invoiceId) fetchInvoice()
+  }, [isAuthenticated, invoiceId])
 
   const handleLineChange = (idx: number, field: string, value: string) => {
     const newLines = [...formData.lines]

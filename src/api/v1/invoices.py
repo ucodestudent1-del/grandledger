@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import (
     Account,
@@ -18,22 +18,17 @@ from src.models import (
     InvoiceStatus,
     User,
 )
-from src.schemas import InvoiceCreate, InvoiceLineRead, InvoiceRead
+from src.schemas import InvoiceCreate, InvoiceLineRead, InvoiceRead, InvoiceUpdate
 from src.services.posting import JournalLineData, post_journal, post_journal_entry
 
 router = APIRouter(tags=["invoices"])
-
-
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
 
 
 @router.post("/invoices", response_model=InvoiceRead)
 def create_invoice(
     payload: InvoiceCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> InvoiceRead:
     user: User = request.state.user
@@ -100,7 +95,7 @@ def create_invoice(
 @router.get("/invoices", response_model=list[InvoiceRead])
 def list_invoices(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
     contact_id: UUID | None = None,
@@ -122,7 +117,7 @@ def list_invoices(
 def get_invoice_pdf(
     invoice_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ):
     """Download an invoice as PDF."""
@@ -150,7 +145,7 @@ def get_invoice_pdf(
 def get_invoice(
     invoice_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> InvoiceRead:
     invoice = session.get(Invoice, invoice_id)
@@ -159,11 +154,45 @@ def get_invoice(
     return _build_read(invoice)
 
 
+@router.patch("/invoices/{invoice_id}", response_model=InvoiceRead)
+def update_invoice(
+    invoice_id: UUID,
+    payload: InvoiceUpdate,
+    request: Request,
+    session: Session = Depends(get_db),
+    company_id: UUID = Depends(get_company_id),
+) -> InvoiceRead:
+    invoice = session.get(Invoice, invoice_id)
+    if not invoice or invoice.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.status != InvoiceStatus.DRAFT:
+        raise HTTPException(status_code=400, detail="Only draft invoices can be modified")
+
+    if payload.contact_id:
+        contact = session.get(Contact, payload.contact_id)
+        if not contact or contact.company_id != company_id:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if contact.type != "customer":
+            raise HTTPException(status_code=400, detail="Contact must be a customer")
+        invoice.contact_id = payload.contact_id
+    if payload.issue_date is not None:
+        invoice.issue_date = payload.issue_date
+    if payload.due_date is not None:
+        invoice.due_date = payload.due_date
+    if payload.currency is not None:
+        invoice.currency = payload.currency
+
+    session.add(invoice)
+    session.commit()
+    session.refresh(invoice)
+    return _build_read(invoice)
+
+
 @router.post("/invoices/{invoice_id}/issue", response_model=InvoiceRead)
 def issue_invoice(
     invoice_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> InvoiceRead:
     user: User = request.state.user
@@ -238,7 +267,7 @@ def issue_invoice(
 def void_invoice(
     invoice_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> InvoiceRead:
     user: User = request.state.user
@@ -263,26 +292,48 @@ def void_invoice(
                 status_code=400,
                 detail="Missing required accounts for reversal",
             )
-        reversal_je = post_journal(
-            company_id=company_id,
-            lines=[
+        tax_account = _get_tax_account(session, company_id) if invoice.tax_total > 0 else None
+
+        reversal_lines: list[JournalLineData] = [
+            JournalLineData(
+                account_id=ar_account.id,
+                description=f"Void reversal of invoice {invoice.number}",
+                debit=Decimal("0"),
+                credit=invoice.total,
+            ),
+            JournalLineData(
+                account_id=revenue_account.id,
+                description=f"Void reversal of invoice {invoice.number}",
+                debit=invoice.subtotal,
+                credit=Decimal("0"),
+            ),
+        ]
+        if invoice.tax_total > 0 and tax_account:
+            reversal_lines.append(
                 JournalLineData(
-                    account_id=ar_account.id,
-                    description=f"Void reversal of invoice {invoice.number}",
+                    account_id=tax_account.id,
+                    description=f"Void reversal of invoice {invoice.number} tax",
                     debit=Decimal("0"),
-                    credit=invoice.total,
+                    credit=invoice.tax_total,
                 ),
+            )
+        elif invoice.tax_total > 0:
+            reversal_lines.append(
                 JournalLineData(
                     account_id=revenue_account.id,
-                    description=f"Void reversal of invoice {invoice.number}",
-                    debit=invoice.subtotal,
-                    credit=Decimal("0"),
+                    description=f"Void reversal of invoice {invoice.number} tax",
+                    debit=Decimal("0"),
+                    credit=invoice.tax_total,
                 ),
-            ],
+            )
+
+        reversal_je = post_journal(
+            company_id=company_id,
+            lines=reversal_lines,
             description=f"Void reversal of invoice {invoice.number}",
-             entry_date=datetime.now(UTC).date(),
-             created_by=user.id,
-             source="invoice_void",
+            entry_date=datetime.now(UTC).date(),
+            created_by=user.id,
+            source="invoice_void",
             session=session,
             ip_address=ip,
         )

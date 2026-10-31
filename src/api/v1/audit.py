@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import AuditLog
 from src.schemas import AuditLogRead
@@ -15,15 +15,10 @@ from src.schemas import AuditLogRead
 router = APIRouter(tags=["audit"])
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.get("/audit/logs", response_model=list[AuditLogRead])
 def list_audit_logs(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     entity_type: str | None = None,
     action: str | None = None,

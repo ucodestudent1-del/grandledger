@@ -14,6 +14,7 @@ export default function JournalsPage() {
   const [loading, setLoading] = useState(true)
   const [postingId, setPostingId] = useState<string | null>(null)
   const [voidingId, setVoidingId] = useState<string | null>(null)
+  const [reversingId, setReversingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -52,14 +53,18 @@ export default function JournalsPage() {
   }
 
   const handleReverse = async (jeId: string) => {
+    setReversingId(jeId)
     try {
       await api.post(`/journals/${jeId}/reverse`, {})
-      // Refresh list to show the new reversal entry
-      api.get<JournalEntry[]>("/journals?page=1&page_size=50")
-        .then(setJournals)
-        .catch(console.error)
+      setJournals((prev) =>
+        prev.map((j) =>
+          j.id === jeId ? { ...j, status: "void" } : j
+        )
+      )
     } catch (err: any) {
       console.error("Failed to reverse:", err)
+    } finally {
+      setReversingId(null)
     }
   }
 

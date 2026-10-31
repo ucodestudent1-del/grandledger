@@ -23,6 +23,10 @@ from sqlalchemy.dialects import postgresql  # noqa: E402
 
 def _create_trigger_function() -> None:
     op.execute("""
+        DROP TRIGGER IF EXISTS balanced_entry_trigger ON journal_entries;
+        DROP FUNCTION IF EXISTS enforce_balanced_entry();
+    """)
+    op.execute("""
         CREATE OR REPLACE FUNCTION enforce_balanced_entry()
         RETURNS TRIGGER AS $$
         DECLARE

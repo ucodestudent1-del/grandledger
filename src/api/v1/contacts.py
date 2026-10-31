@@ -6,24 +6,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import Contact
-from src.schemas import ContactCreate, ContactRead
+from src.schemas import ContactCreate, ContactRead, ContactUpdate
 
 router = APIRouter(tags=["contacts"])
-
-
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
 
 
 @router.post("/contacts", response_model=ContactRead)
 def create_contact(
     payload: ContactCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> ContactRead:
     contact = Contact(company_id=company_id, **payload.model_dump())
@@ -36,7 +31,7 @@ def create_contact(
 @router.get("/contacts", response_model=list[ContactRead])
 def list_contacts(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     contact_type: str | None = None,
     page: int | None = None,
@@ -55,7 +50,7 @@ def list_contacts(
 def get_contact(
     contact_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> ContactRead:
     contact = session.get(Contact, contact_id)
@@ -70,9 +65,9 @@ def get_contact(
 @router.patch("/contacts/{contact_id}", response_model=ContactRead)
 def update_contact(
     contact_id: UUID,
-    payload: ContactCreate,
+    payload: ContactUpdate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> ContactRead:
     contact = session.get(Contact, contact_id)
@@ -95,7 +90,7 @@ def update_contact(
 def delete_contact(
     contact_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> ContactRead:
     from src.models import Bill, Invoice

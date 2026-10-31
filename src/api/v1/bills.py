@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import (
     Account,
@@ -18,22 +18,17 @@ from src.models import (
     Contact,
     User,
 )
-from src.schemas import BillCreate, BillLineRead, BillRead
+from src.schemas import BillCreate, BillLineRead, BillRead, BillUpdate
 from src.services.posting import JournalLineData, post_journal, post_journal_entry
 
 router = APIRouter(tags=["bills"])
-
-
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
 
 
 @router.post("/bills", response_model=BillRead)
 def create_bill(
     payload: BillCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BillRead:
     user: User = request.state.user
@@ -86,7 +81,7 @@ def create_bill(
 @router.get("/bills", response_model=list[BillRead])
 def list_bills(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     status_filter: str | None = None,
     contact_id: UUID | None = None,
@@ -108,7 +103,7 @@ def list_bills(
 def get_bill(
     bill_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BillRead:
     bill = session.get(Bill, bill_id)
@@ -117,11 +112,45 @@ def get_bill(
     return _build_read(bill)
 
 
+@router.patch("/bills/{bill_id}", response_model=BillRead)
+def update_bill(
+    bill_id: UUID,
+    payload: BillUpdate,
+    request: Request,
+    session: Session = Depends(get_db),
+    company_id: UUID = Depends(get_company_id),
+) -> BillRead:
+    bill = session.get(Bill, bill_id)
+    if not bill or bill.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    if bill.status != BillStatus.DRAFT:
+        raise HTTPException(status_code=400, detail="Only draft bills can be modified")
+
+    if payload.contact_id:
+        contact = session.get(Contact, payload.contact_id)
+        if not contact or contact.company_id != company_id:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if contact.type != "vendor":
+            raise HTTPException(status_code=400, detail="Contact must be a vendor")
+        bill.contact_id = payload.contact_id
+    if payload.issue_date is not None:
+        bill.issue_date = payload.issue_date
+    if payload.due_date is not None:
+        bill.due_date = payload.due_date
+    if payload.currency is not None:
+        bill.currency = payload.currency
+
+    session.add(bill)
+    session.commit()
+    session.refresh(bill)
+    return _build_read(bill)
+
+
 @router.post("/bills/{bill_id}/post", response_model=BillRead)
 def post_bill(
     bill_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BillRead:
     user: User = request.state.user
@@ -133,18 +162,29 @@ def post_bill(
 
     ip = request.client.host if request.client else None
 
-    # Create journal entry: DR Expense, CR Accounts Payable
+    # Create journal entry: DR Expense, DR Tax Expense, CR Accounts Payable
     ap_account = _get_ap_account(session, company_id)
     expense_account = _get_expense_account(session, company_id)
+    tax_account = _get_tax_account(session, company_id)
 
     lines: list[JournalLineData] = []
     for line in bill.lines:
         exp_account = session.get(Account, line.account_id) if line.account_id else expense_account
+        line_total = line.amount + (line.amount * line.tax_rate / Decimal("100"))
         lines.append(
             JournalLineData(
                 account_id=exp_account.id if exp_account else expense_account.id,
                 description=f"Bill {bill.number}: {line.description}",
-                debit=line.amount + (line.amount * line.tax_rate / Decimal("100")),
+                debit=line_total,
+                credit=Decimal("0"),
+            )
+        )
+    if bill.tax_total > 0 and tax_account:
+        lines.append(
+            JournalLineData(
+                account_id=tax_account.id,
+                description=f"Bill {bill.number} tax",
+                debit=bill.tax_total,
                 credit=Decimal("0"),
             )
         )
@@ -181,7 +221,7 @@ def post_bill(
 def void_bill(
     bill_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BillRead:
     user: User = request.state.user
@@ -205,28 +245,51 @@ def void_bill(
                 status_code=400,
                 detail="Missing required accounts for reversal",
             )
-        reversal_je = post_journal(
-            company_id=company_id,
-            lines=[
+
+        tax_account = _get_tax_account(session, company_id) if bill.tax_total > 0 else None
+
+        reversal_lines: list[JournalLineData] = [
+            JournalLineData(
+                account_id=ap_account.id,
+                description=f"Void reversal of bill {bill.number}",
+                debit=Decimal("0"),
+                credit=bill.total,
+            ),
+            JournalLineData(
+                account_id=expense_account.id,
+                description=f"Void reversal of bill {bill.number}",
+                debit=bill.subtotal,
+                credit=Decimal("0"),
+            ),
+        ]
+        if bill.tax_total > 0 and tax_account:
+            reversal_lines.append(
                 JournalLineData(
-                    account_id=ap_account.id,
-                    description=f"Void reversal of bill {bill.number}",
-                    debit=Decimal("0"),
-                    credit=bill.total,
-                ),
-                JournalLineData(
-                    account_id=expense_account.id,
-                    description=f"Void reversal of bill {bill.number}",
-                    debit=bill.subtotal,
+                    account_id=tax_account.id,
+                    description=f"Void reversal of bill {bill.number} tax",
+                    debit=bill.tax_total,
                     credit=Decimal("0"),
                 ),
-            ],
+            )
+        elif bill.tax_total > 0:
+            reversal_lines.append(
+                JournalLineData(
+                    account_id=expense_account.id,
+                    description=f"Void reversal of bill {bill.number} tax",
+                    debit=bill.tax_total,
+                    credit=Decimal("0"),
+                ),
+            )
+
+        reversal_je = post_journal(
+            company_id=company_id,
+            lines=reversal_lines,
             description=f"Void reversal of bill {bill.number}",
-             entry_date=datetime.now(UTC).date(),
-             created_by=user.id,
-             source="bill_void",
-             session=session,
-             ip_address=ip,
+            entry_date=datetime.now(UTC).date(),
+            created_by=user.id,
+            source="bill_void",
+            session=session,
+            ip_address=ip,
         )
         post_journal_entry(reversal_je.id, posted_by=user.id, ip_address=ip)
 

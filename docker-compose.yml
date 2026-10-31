@@ -31,6 +31,9 @@ services:
     entrypoint: sh
     command: ["-c", "alembic upgrade head && exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"]
     env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@postgres:5432/grandledger
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - .:/app
     ports:

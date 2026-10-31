@@ -61,6 +61,13 @@ class CompanyCreate(BaseModel):
     financial_year_start: date | None = None
 
 
+class CompanyUpdate(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+    currency: str | None = None
+    financial_year_start: date | None = None
+
+
 class CompanyRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,6 +87,14 @@ class AccountCreate(BaseModel):
     is_active: bool = True
 
 
+class AccountUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    type: str | None = None
+    parent_id: UUID | None = None
+    is_active: bool | None = None
+
+
 class AccountRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -96,6 +111,14 @@ class AccountRead(BaseModel):
 class ContactCreate(BaseModel):
     name: str
     type: str
+    email: str | None = None
+    phone: str | None = None
+    address: dict | None = None
+
+
+class ContactUpdate(BaseModel):
+    name: str | None = None
+    type: str | None = None
     email: str | None = None
     phone: str | None = None
     address: dict | None = None
@@ -185,6 +208,13 @@ class InvoiceCreate(BaseModel):
     currency: str = "USD"
 
 
+class InvoiceUpdate(BaseModel):
+    contact_id: UUID | None = None
+    issue_date: date | None = None
+    due_date: date | None = None
+    currency: str | None = None
+
+
 class InvoiceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -233,6 +263,13 @@ class BillCreate(BaseModel):
     issue_date: date | None = None
     due_date: date | None = None
     currency: str = "USD"
+
+
+class BillUpdate(BaseModel):
+    contact_id: UUID | None = None
+    issue_date: date | None = None
+    due_date: date | None = None
+    currency: str | None = None
 
 
 class BillRead(BaseModel):
@@ -306,7 +343,11 @@ class BankTransactionRead(BaseModel):
     id: UUID
     company_id: UUID
     bank_account_id: UUID
-    txn_date: date | None = Field(default=None, serialization_alias="date")
+    txn_date: date | None = Field(
+        default=None,
+        serialization_alias="date",
+        validation_alias="date",
+    )
     description: str
     amount: Decimal
     balance: Decimal | None = None
@@ -344,10 +385,13 @@ __all__ = [
     "LoginRequest",
     "RefreshRequest",
     "CompanyCreate",
+    "CompanyUpdate",
     "CompanyRead",
     "AccountCreate",
+    "AccountUpdate",
     "AccountRead",
     "ContactCreate",
+    "ContactUpdate",
     "ContactRead",
     "JournalLineCreate",
     "JournalEntryCreate",
@@ -356,10 +400,12 @@ __all__ = [
     "InvoiceLineCreate",
     "InvoiceLineRead",
     "InvoiceCreate",
+    "InvoiceUpdate",
     "InvoiceRead",
     "BillLineCreate",
     "BillLineRead",
     "BillCreate",
+    "BillUpdate",
     "BillRead",
     "PaymentCreate",
     "PaymentRead",

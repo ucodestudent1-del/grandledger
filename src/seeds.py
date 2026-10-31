@@ -299,7 +299,7 @@ def _issue_demo_invoices(session: Session, company: Company, user: User) -> None
                 type=PaymentType.RECEIPT,
                 amount=invoice.total,
                 payment_date=date(2026, 10, 5),
-                allocated_to=[{"invoice_id": str(invoice.id), "amount": float(invoice.total)}],
+                allocated_to=[{"invoice_id": str(invoice.id), "amount": str(invoice.total)}],
                 journal_entry_id=je.id,
                 created_by=user.id,
             )

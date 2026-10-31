@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
 from src.models import BankAccount, BankTransaction
 from src.schemas import BankAccountCreate, BankAccountRead, BankTransactionRead
@@ -18,16 +18,11 @@ from src.schemas import BankAccountCreate, BankAccountRead, BankTransactionRead
 router = APIRouter(tags=["bank"])
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.post("/bank/accounts", response_model=BankAccountRead)
 def create_bank_account(
     payload: BankAccountCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BankAccountRead:
     account = BankAccount(company_id=company_id, **payload.model_dump())
@@ -40,7 +35,7 @@ def create_bank_account(
 @router.get("/bank/accounts", response_model=list[BankAccountRead])
 def list_bank_accounts(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> list[BankAccountRead]:
     stmt = select(BankAccount).where(BankAccount.company_id == company_id)
@@ -52,7 +47,7 @@ def list_bank_accounts(
 def get_bank_account(
     account_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BankAccountRead:
     bank_account = session.get(BankAccount, account_id)
@@ -66,7 +61,7 @@ def import_transactions(
     request: Request,
     bank_account_id: UUID,
     file: UploadFile = File(...),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     bank_account = session.get(BankAccount, bank_account_id)
@@ -129,7 +124,7 @@ def import_transactions(
 @router.get("/bank/transactions", response_model=list[BankTransactionRead])
 def list_transactions(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
     bank_account_id: UUID | None = None,
     matched: bool | None = None,
@@ -155,7 +150,7 @@ def match_transaction(
     txn_id: UUID,
     request: Request,
     journal_entry_id: UUID | None = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BankTransactionRead:
     txn = session.get(BankTransaction, txn_id)
@@ -176,7 +171,7 @@ def match_transaction(
 def reconcile_transaction(
     txn_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> BankTransactionRead:
     txn = session.get(BankTransaction, txn_id)

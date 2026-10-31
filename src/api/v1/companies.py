@@ -8,23 +8,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from src.core.middleware import log_audit, require_role
+from src.core.middleware import get_db, log_audit, require_role
 from src.models import Company, User
-from src.schemas import CompanyCreate, CompanyRead
+from src.schemas import CompanyCreate, CompanyRead, CompanyUpdate
 
 router = APIRouter(tags=["companies"])
-
-
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
 
 
 @router.post("/companies", response_model=CompanyRead)
 def create_company(
     payload: CompanyCreate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> CompanyRead:
     existing = session.exec(select(Company).where(Company.slug == payload.slug)).first()
     if existing:
@@ -42,9 +37,9 @@ def create_company(
 @router.patch("/companies/{company_id}", response_model=CompanyRead)
 def update_company(
     company_id: UUID,
-    payload: CompanyCreate,
+    payload: CompanyUpdate,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     user: User = Depends(require_role("owner", "accountant")),
 ) -> CompanyRead:
     company = session.get(Company, company_id)
@@ -78,7 +73,7 @@ def update_company(
 
 @router.get("/companies")
 def list_companies(
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> list[CompanyRead]:
     companies = session.exec(select(Company)).all()
     return companies
@@ -87,7 +82,7 @@ def list_companies(
 @router.get("/companies/{company_id}", response_model=CompanyRead)
 def get_company(
     company_id: UUID,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
 ) -> CompanyRead:
     company = session.get(Company, company_id)
     if not company:
@@ -106,7 +101,7 @@ class PeriodLockRequest(BaseModel):
 def get_period_lock(
     company_id: UUID,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     user: User = Depends(require_role("owner", "accountant")),
 ) -> CompanyRead:
     """Get the current period lock status for the company."""
@@ -124,7 +119,7 @@ def set_period_lock(
     company_id: UUID,
     payload: PeriodLockRequest,
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     user: User = Depends(require_role("owner", "accountant")),
 ) -> CompanyRead:
     """Lock or unlock a period. Set locked_period_end to lock; set to null to unlock."""

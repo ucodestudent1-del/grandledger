@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
-from src.core.middleware import get_company_id
+from src.core.middleware import get_company_id, get_db
 from src.models import (
     Account,
     BankAccount,
@@ -24,16 +24,11 @@ from src.schemas import ReportRequest
 router = APIRouter(tags=["reports"])
 
 
-def get_session() -> Session:
-    import src.database as db_module
-    return Session(db_module.engine)
-
-
 @router.post("/reports/profit-loss")
 def profit_loss(
     request: Request,
     payload: ReportRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     revenue_lines, expense_lines, total_revenue, total_expenses = _get_pnl_data(
@@ -58,7 +53,7 @@ def profit_loss(
 def balance_sheet(
     request: Request,
     payload: ReportRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     assets, liabilities, equity, asset_lines, liability_lines, equity_lines = _get_bs_data(
@@ -78,7 +73,7 @@ def balance_sheet(
 def trial_balance(
     request: Request,
     payload: ReportRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     accounts = _get_account_balances(session, company_id, payload.start_date, payload.end_date)
@@ -102,7 +97,7 @@ def general_ledger(
     request: Request,
     payload: ReportRequest,
     account_id: UUID | None = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     stmt = (
@@ -157,7 +152,7 @@ def general_ledger(
 def ar_aging(
     request: Request,
     as_of: date | None = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     if as_of is None:
@@ -244,7 +239,7 @@ def ar_aging(
 def ap_aging(
     request: Request,
     as_of: date | None = None,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     if as_of is None:
@@ -333,7 +328,7 @@ def ap_aging(
 def cash_summary(
     request: Request,
     payload: ReportRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     company_id: UUID = Depends(get_company_id),
 ) -> dict:
     bank_accounts = session.exec(

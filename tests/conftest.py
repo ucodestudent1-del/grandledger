@@ -56,33 +56,13 @@ def db_session(test_engine):
 @pytest.fixture(scope="function")
 def client(test_engine):
     """Provide a TestClient that uses the in-memory SQLite database."""
-    from src.api.v1.accounts import get_session as accounts_get_session
-    from src.api.v1.audit import get_session as audit_get_session
-    from src.api.v1.auth import get_session as auth_get_session
-    from src.api.v1.banking import get_session as banking_get_session
-    from src.api.v1.bills import get_session as bills_get_session
-    from src.api.v1.companies import get_session as companies_get_session
-    from src.api.v1.contacts import get_session as contacts_get_session
-    from src.api.v1.invoices import get_session as invoices_get_session
-    from src.api.v1.journals import get_session as journals_get_session
-    from src.api.v1.payments import get_session as payments_get_session
-    from src.api.v1.reports import get_session as reports_get_session
+    from src.core.middleware import get_db
 
-    def override_get_session():
+    def override_get_db():
         with Session(test_engine) as s:
             yield s
 
-    app.dependency_overrides[accounts_get_session] = override_get_session
-    app.dependency_overrides[audit_get_session] = override_get_session
-    app.dependency_overrides[auth_get_session] = override_get_session
-    app.dependency_overrides[bills_get_session] = override_get_session
-    app.dependency_overrides[banking_get_session] = override_get_session
-    app.dependency_overrides[companies_get_session] = override_get_session
-    app.dependency_overrides[contacts_get_session] = override_get_session
-    app.dependency_overrides[invoices_get_session] = override_get_session
-    app.dependency_overrides[journals_get_session] = override_get_session
-    app.dependency_overrides[payments_get_session] = override_get_session
-    app.dependency_overrides[reports_get_session] = override_get_session
+    app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as c:
         yield c

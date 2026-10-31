@@ -32,11 +32,15 @@ export default function JournalForm({ journalId }: { journalId?: string }) {
   const router = useRouter()
 
   const isEdit = !!journalId
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    entry_date: string
+    description: string
+    lines: JournalLineForm[]
+  }>(() => ({
     entry_date: new Date().toISOString().split("T")[0],
     description: "",
-    lines: [] as JournalLineForm[],
-  })
+    lines: [],
+  }))
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -186,7 +190,7 @@ export default function JournalForm({ journalId }: { journalId?: string }) {
         </h1>
         {journal && (
           <StatusBadge
-            status={journal.status === "posted" ? "void" : journal.status === "void" ? "void" : "draft"}
+            status={journal.status === "posted" ? "posted" : journal.status === "void" ? "void" : "draft"}
           >
             {journal.status.toUpperCase()}
           </StatusBadge>
