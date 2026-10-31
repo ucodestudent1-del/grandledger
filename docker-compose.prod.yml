@@ -6,7 +6,7 @@ services:
     container_name: grandledger-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: grandledger
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -36,11 +36,32 @@ services:
   api:
     build: .
     container_name: grandledger-api
-    env_file: .env.production
-    # Override DATABASE_URL and REDIS_URL for Docker networking
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/grandledger
       - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
+      - DEBUG=False
+      - ENVIRONMENT=production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - FRONTEND_URL=${FRONTEND_URL:-https://yourdomain.com}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://yourdomain.com}
+      - PASSWORD_MIN_LENGTH=${PASSWORD_MIN_LENGTH}
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_USE_TLS=${SMTP_USE_TLS}
+      - SMTP_FROM=${SMTP_FROM}
+      - VERIFY_TOKEN_EXPIRE_MINUTES=${VERIFY_TOKEN_EXPIRE_MINUTES}
+      - PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
     image: grandledger/api:latest
     expose:
       - "8000"
