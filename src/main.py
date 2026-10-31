@@ -102,6 +102,8 @@ async def tenant_and_auth_middleware(request: Request, call_next: Any) -> Any:
                     if user and str(user.company_id) == payload.get("company_id"):
                         request.state.user = user
                         request.state.company_id = user.company_id
+                        from src.core.middleware import set_tenant_id
+                        set_tenant_id(user.company_id)
                     else:
                         request.state.user = None
                         request.state.company_id = None
@@ -115,7 +117,11 @@ async def tenant_and_auth_middleware(request: Request, call_next: Any) -> Any:
         request.state.user = None
         request.state.company_id = None
 
-    return await call_next(request)
+    try:
+        return await call_next(request)
+    finally:
+        from src.core.middleware import set_tenant_id
+        set_tenant_id(None)
 
 
 @app.get("/health")
@@ -211,6 +217,10 @@ def root() -> Any:
 @app.get("/{path:path}", include_in_schema=False)
 def spa_fallback(path: str) -> Any:
     """Serve frontend assets for client-side routes in production."""
+    if path.startswith("api/v1/") or path.startswith("docs") or path.startswith("redoc"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not found")
+
     frontend_dist = Path(__file__).resolve().parent.parent / "web" / "out"
     file_path = frontend_dist / path
 

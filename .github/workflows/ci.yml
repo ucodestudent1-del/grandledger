@@ -106,8 +106,26 @@ jobs:
         working-directory: ./web
         run: npm test -- --ci --coverage
 
-  build-docker:
+  lint-dockerfile:
     needs: [lint-and-test-backend, lint-and-test-frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        run: |
+          pip install dockerfile-parse
+          python -c "
+          from dockerfile_parse import DockerfileParser
+          dfp = DockerfileParser('./Dockerfile')
+          print('Dockerfile base image:', dfp.baseimage)
+          assert 'python' in dfp.baseimage, 'Backend Dockerfile must use Python base image'
+          print('Dockerfile linting passed')
+          "
+
+  build-docker:
+    needs: [lint-and-test-backend, lint-and-test-frontend, lint-dockerfile]
     runs-on: ubuntu-latest
 
     steps:

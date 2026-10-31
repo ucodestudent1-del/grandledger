@@ -1,20 +1,40 @@
 """Middleware: tenant context, audit logging, RBAC."""
 from __future__ import annotations
 
+import threading
+from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, Request, status
-from sqlmodel import Session
+from sqlmodel import Session, text
 
 from src.core.security import decode_access_token
 from src.models import User
+
+_tenant_context: threading.local = threading.local()
+
+
+def set_tenant_id(company_id: UUID | None) -> None:
+    """Store the current tenant (company) ID in thread-local context."""
+    _tenant_context.company_id = company_id
+
+
+def get_tenant_id() -> UUID | None:
+    """Get the current tenant (company) ID from thread-local context."""
+    return getattr(_tenant_context, "company_id", None)
 
 
 def get_db() -> Session:
     import src.database as db_module
 
-    return Session(db_module.engine)
+    session = Session(db_module.engine)
+    # Set RLS context for PostgreSQL (no-op on SQLite)
+    tenant_id = get_tenant_id()
+    if tenant_id:
+        with suppress(Exception):
+            session.exec(text("SET LOCAL app.company_id = :cid"), {"cid": str(tenant_id)})
+    return session
 
 
 def get_current_user(request: Request) -> User:
