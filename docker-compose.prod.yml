@@ -16,6 +16,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - backend
@@ -23,6 +24,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: grandledger-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
     networks:
       - backend
@@ -30,18 +36,25 @@ services:
   api:
     build: .
     container_name: grandledger-api
-    env_file: .env
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/grandledger
       - REDIS_URL=redis://redis:6379/0
     image: grandledger/api:latest
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
     networks:
       - backend
@@ -59,6 +72,11 @@ services:
       - ./web/out:/app/web/out:ro
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t && curl -f http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     networks:
       - frontend
