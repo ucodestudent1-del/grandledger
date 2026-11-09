@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
 from src.core.middleware import log_audit
+from src.core.money import validate_decimal
 from src.models import (
     Account,
     Company,
@@ -48,11 +49,16 @@ class JournalLineData:
     ) -> None:
         self.account_id = account_id
         self.description = description
-        self.debit = debit
-        self.credit = credit
+        self.debit = validate_decimal(debit, "debit")
+        self.credit = validate_decimal(credit, "credit")
 
 
 def validate_lines_balanced(lines: Sequence[JournalLineData]) -> None:
+    for ln in lines:
+        if not isinstance(ln.debit, Decimal):
+            raise TypeError(f"Line debit must be Decimal, got {type(ln.debit).__name__}")
+        if not isinstance(ln.credit, Decimal):
+            raise TypeError(f"Line credit must be Decimal, got {type(ln.credit).__name__}")
     total_debit = sum((ln.debit for ln in lines), Decimal("0"))
     total_credit = sum((ln.credit for ln in lines), Decimal("0"))
     if total_debit != total_credit:
@@ -339,8 +345,8 @@ def reverse_journal_entry(
             JournalLineData(
                 account_id=ln.account_id,
                 description=f"Reversal of {ln.description}" if ln.description else f"Reversal of {je.number}",
-                debit=ln.credit,
-                credit=ln.debit,
+                debit=validate_decimal(ln.credit, "debit"),
+                credit=validate_decimal(ln.debit, "credit"),
             )
             for ln in original_lines
         ]

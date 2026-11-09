@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import smtplib
 
 from src.config import settings
 
@@ -13,6 +14,23 @@ class EmailService:
 
     def __init__(self) -> None:
         self.enabled = bool(settings.SMTP_HOST)
+
+    def test_connection(self) -> tuple[bool, str | None]:
+        """Verify SMTP connectivity. Returns (ok, error_message)."""
+        if not self.enabled:
+            return True, None  # Dev mode — no SMTP needed
+        try:
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                if settings.SMTP_USE_TLS:
+                    server.starttls()
+                if settings.SMTP_USER and settings.SMTP_PASS:
+                    server.login(settings.SMTP_USER, settings.SMTP_PASS)
+            logger.info("SMTP connection verified: %s:%s", settings.SMTP_HOST, settings.SMTP_PORT)
+            return True, None
+        except Exception as exc:
+            msg = f"SMTP connection failed: {exc}"
+            logger.exception(msg)
+            return False, msg
 
     def send_email(
         self,

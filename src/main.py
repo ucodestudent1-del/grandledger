@@ -42,7 +42,22 @@ async def lifespan(app: FastAPI) -> Any:
         from src.database import init_db
 
         init_db()
+
     configure_logging()
+
+    # Validate SMTP configuration in production
+    if settings.ENVIRONMENT == "production" and not settings.SMTP_HOST:
+        logger.error("SMTP_HOST is required in production environment")
+        raise RuntimeError("SMTP_HOST must be configured in production")
+
+    if settings.ENVIRONMENT == "production":
+        from src.core.email import email_service
+
+        ok, error = email_service.test_connection()
+        if not ok:
+            logger.error("SMTP validation failed: %s", error)
+            raise RuntimeError(f"SMTP connection failed: {error}")
+
     logger.info("Starting GrandLedger API (env=%s)", settings.ENVIRONMENT)
     yield
     logger.info("Shutting down GrandLedger API")
