@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -30,7 +31,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        response = await call_next(request)
+        response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -62,7 +63,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     status_code=403,
                     content={"detail": "CSRF token mismatch"},
                 )
-        response = await call_next(request)
+        response: Response = await call_next(request)
         return response
 
 
@@ -86,6 +87,15 @@ async def lifespan(app: FastAPI) -> Any:
         init_db()
 
     configure_logging()
+
+    # Initialize Sentry error monitoring
+    if settings.SENTRY_DSN:
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT,
+            traces_sample_rate=0.1,
+            send_default_pii=False,
+        )
 
     # Validate SMTP configuration in production
     if settings.ENVIRONMENT == "production" and not settings.SMTP_HOST:

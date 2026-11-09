@@ -2,7 +2,6 @@ from datetime import timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
 from src.config import settings

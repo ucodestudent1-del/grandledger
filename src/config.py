@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Password reset
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
 
+    # Sentry / Error monitoring
+    SENTRY_DSN: str | None = None
+
     # Stripe / Billing
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None

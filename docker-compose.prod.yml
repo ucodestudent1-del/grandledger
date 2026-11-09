@@ -65,6 +65,7 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
     image: grandledger/api:latest
     expose:
       - "8000"

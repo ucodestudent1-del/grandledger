@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
+export const API_BASE_URL =
+  (process.env as Record<string, string>)["NEXT_PUBLIC_API_URL"] || ""
 
 export interface ApiResponse<T> {
   data: T
