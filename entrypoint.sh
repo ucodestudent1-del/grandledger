@@ -2,7 +2,12 @@
 set -e
 
 echo "Starting GrandLedger API..."
-echo "DATABASE_URL: ${DATABASE_URL:-not set}"
+# Sanitize DATABASE_URL before logging - never log passwords
+DB_DISPLAY="${DATABASE_URL:-not set}"
+if echo "$DB_DISPLAY" | grep -q "@"; then
+    DB_DISPLAY="postgresql://***:***@$(echo "$DB_DISPLAY" | sed 's/.*@//')"
+fi
+echo "DATABASE_URL: $DB_DISPLAY"
 echo "REDIS_URL: ${REDIS_URL:-not set}"
 
 # Force correct DATABASE_URL for Docker networking if localhost is detected

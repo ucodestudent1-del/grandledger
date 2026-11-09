@@ -1,6 +1,4 @@
 """Journal entries endpoints."""
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -9,6 +7,7 @@ from sqlmodel import Session, select
 
 from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
+from src.core.rate_limiter import API_READ_RATE_LIMIT, API_WRITE_RATE_LIMIT, limiter
 from src.models import JournalEntry, User
 from src.schemas import JournalEntryCreate, JournalEntryRead
 from src.services.posting import (
@@ -23,6 +22,7 @@ router = APIRouter(tags=["journals"])
 
 
 @router.post("/journals", response_model=JournalEntryRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def create_journal(
     payload: JournalEntryCreate,
     request: Request,
@@ -57,6 +57,7 @@ def create_journal(
 
 
 @router.get("/journals", response_model=list[JournalEntryRead])
+@limiter.limit(API_READ_RATE_LIMIT)
 def list_journals(
     request: Request,
     session: Session = Depends(get_db),
@@ -91,6 +92,7 @@ def get_journal(
 
 
 @router.post("/journals/{je_id}/post", response_model=JournalEntryRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def post_journal_endpoint(
     je_id: UUID,
     request: Request,
@@ -105,6 +107,7 @@ def post_journal_endpoint(
 
 
 @router.post("/journals/{je_id}/void", response_model=JournalEntryRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def void_journal(
     je_id: UUID,
     request: Request,
@@ -119,6 +122,7 @@ def void_journal(
 
 
 @router.post("/journals/{je_id}/reverse", response_model=JournalEntryRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def reverse_journal(
     je_id: UUID,
     request: Request,

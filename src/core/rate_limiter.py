@@ -31,6 +31,11 @@ def _build_storage_uri() -> str:
 
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["10000/hour"] if settings.DEBUG or settings.ENVIRONMENT == "testing" else ["1000/hour"],
+    default_limits=["10000/hour"] if settings.DEBUG or settings.ENVIRONMENT == "testing" else ["500/hour"],
     storage_uri=_build_storage_uri(),
 )
+
+# Rate limit presets for different endpoint types
+AUTH_RATE_LIMIT = "10/minute" if settings.ENVIRONMENT == "testing" else "5/minute"
+API_WRITE_RATE_LIMIT = "1000/hour" if settings.ENVIRONMENT == "testing" else "100/hour"
+API_READ_RATE_LIMIT = "5000/hour" if settings.ENVIRONMENT == "testing" else "500/hour"

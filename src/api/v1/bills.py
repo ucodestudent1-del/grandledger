@@ -1,6 +1,4 @@
 """Bills (AP) endpoints."""
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -10,6 +8,7 @@ from sqlmodel import Session, select
 
 from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
+from src.core.rate_limiter import API_READ_RATE_LIMIT, API_WRITE_RATE_LIMIT, limiter
 from src.models import (
     Account,
     Bill,
@@ -25,6 +24,7 @@ router = APIRouter(tags=["bills"])
 
 
 @router.post("/bills", response_model=BillRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def create_bill(
     payload: BillCreate,
     request: Request,
@@ -79,6 +79,7 @@ def create_bill(
 
 
 @router.get("/bills", response_model=list[BillRead])
+@limiter.limit(API_READ_RATE_LIMIT)
 def list_bills(
     request: Request,
     session: Session = Depends(get_db),
@@ -147,6 +148,7 @@ def update_bill(
 
 
 @router.post("/bills/{bill_id}/post", response_model=BillRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def post_bill(
     bill_id: UUID,
     request: Request,
@@ -218,6 +220,7 @@ def post_bill(
 
 
 @router.post("/bills/{bill_id}/void", response_model=BillRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def void_bill(
     bill_id: UUID,
     request: Request,

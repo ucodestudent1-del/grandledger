@@ -3,6 +3,7 @@ from src.models.account import Account, AccountType
 from src.models.audit import AuditLog
 from src.models.bank import BankAccount, BankAccountStatus, BankTransaction
 from src.models.bill import Bill, BillLine, BillStatus
+from src.models.billing import CustomerPortalSession, InvoicePayment, Subscription
 from src.models.company import Company
 from src.models.contact import Contact, ContactType
 from src.models.file import File
@@ -20,6 +21,9 @@ __all__ = [
     "BankAccount",
     "BankAccountStatus",
     "BankTransaction",
+    "CustomerPortalSession",
+    "InvoicePayment",
+    "Subscription",
     "Bill",
     "BillLine",
     "BillStatus",

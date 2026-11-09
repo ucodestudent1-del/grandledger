@@ -401,6 +401,49 @@ class ReportRequest(BaseModel):
     account_id: UUID | None = None
 
 
+class SubscriptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    company_id: UUID
+    stripe_customer_id: str
+    stripe_subscription_id: str | None
+    stripe_price_id: str | None
+    plan: str
+    status: str
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    cancel_at_period_end: bool
+    canceled_at: datetime | None
+    trial_start: datetime | None
+    trial_end: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CheckoutSessionRequest(BaseModel):
+    plan: str
+
+
+class CheckoutSessionResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+
+
+class InvoicePaymentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    company_id: UUID
+    stripe_invoice_id: str
+    stripe_payment_intent_id: str | None
+    amount: int
+    currency: str
+    status: str
+    paid_at: datetime | None
+    created_at: datetime
+
+
 __all__ = [
     "Token",
     "UserCreate",
@@ -439,5 +482,9 @@ __all__ = [
     "BankAccountRead",
     "BankTransactionRead",
     "AuditLogRead",
+    "SubscriptionRead",
+    "CheckoutSessionRequest",
+    "CheckoutSessionResponse",
+    "InvoicePaymentRead",
     "ReportRequest",
 ]

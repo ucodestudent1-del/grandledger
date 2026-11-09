@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from src.models.audit import AuditLog
     from src.models.bank import BankAccount
     from src.models.bill import Bill
+    from src.models.billing import InvoicePayment, Subscription
     from src.models.contact import Contact
     from src.models.file import File
     from src.models.invoice import Invoice
@@ -47,3 +48,5 @@ class Company(SQLModel, table=True):
     bank_accounts: list["BankAccount"] = Relationship(back_populates="company")  # type: ignore[call-overload]
     audit_logs: list["AuditLog"] = Relationship(back_populates="company")  # type: ignore[call-overload]
     files: list["File"] = Relationship(back_populates="company")  # type: ignore[call-overload]
+    subscription: "Subscription" = Relationship(back_populates="company")  # type: ignore[call-overload]
+    invoice_payments: list["InvoicePayment"] = Relationship(back_populates="company")  # type: ignore[call-overload]

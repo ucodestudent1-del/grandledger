@@ -21,6 +21,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "uvicorn[standard]>=0.30.6",
     "google-auth>=2.35.0",
+    "stripe>=15.0.0",
     "structlog>=24.4.0",
     "prometheus-client>=0.21.0",
 ]

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -9,19 +10,60 @@ from uuid import UUID
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlmodel import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.api import api_router
 from src.config import settings
 from src.core.logging import configure_logging
 from src.core.rate_limiter import limiter
-from src.core.security import decode_access_token
+from src.core.security import decode_access_token, generate_csrf_token, verify_csrf_token
 from src.models import User
 
 logger = logging.getLogger("grandledger")
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """CSRF protection for state-changing methods."""
+
+    STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if (
+            settings.ENVIRONMENT != "testing"
+            and request.method in self.STATE_CHANGING_METHODS
+            and not request.url.path.startswith("/docs")
+            and not request.url.path.startswith("/redoc")
+            and not request.url.path.startswith("/openapi")
+            and not request.url.path.startswith("/api/v1/auth/")
+        ):
+            csrf_token = request.headers.get("X-CSRF-Token") or ""
+            cookie_token = request.cookies.get("csrf_token") or ""
+            if not verify_csrf_token(csrf_token, cookie_token):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF token mismatch"},
+                )
+        response = await call_next(request)
+        return response
 
 
 def _generate_request_id() -> str:
@@ -51,6 +93,10 @@ async def lifespan(app: FastAPI) -> Any:
         raise RuntimeError("SMTP_HOST must be configured in production")
 
     if settings.ENVIRONMENT == "production":
+        if settings.SECRET_KEY == "CHANGE-ME-IN-PRODUCTION":
+            logger.error("SECRET_KEY must be changed from default in production")
+            raise RuntimeError("SECRET_KEY must be set to a secure value in production")
+
         from src.core.email import email_service
 
         ok, error = email_service.test_connection()
@@ -72,6 +118,10 @@ app = FastAPI(
     openapi_url="/api/v1/openapi.json",
     lifespan=lifespan,
 )
+
+# Security middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CSRFMiddleware)
 
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
@@ -174,6 +224,22 @@ def health_check() -> dict:
         "environment": settings.ENVIRONMENT,
         "checks": checks,
     }
+
+
+@app.get("/api/v1/auth/csrf-token")
+def get_csrf_token(request: Request) -> JSONResponse:
+    """Provide a CSRF token for the frontend."""
+    token = generate_csrf_token()
+    response = JSONResponse(content={"csrf_token": token})
+    response.set_cookie(
+        key="csrf_token",
+        value=token,
+        httponly=False,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="lax",
+        path="/",
+    )
+    return response
 
 
 @app.get("/metrics")

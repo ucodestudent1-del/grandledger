@@ -6,6 +6,7 @@ from src.api.v1 import (
     audit,
     auth,
     banking,
+    billing,
     bills,
     companies,
     contacts,
@@ -28,3 +29,4 @@ api_router.include_router(bills.router)
 api_router.include_router(banking.router)
 api_router.include_router(reports.router)
 api_router.include_router(audit.router)
+api_router.include_router(billing.router)

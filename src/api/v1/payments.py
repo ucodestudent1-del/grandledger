@@ -1,6 +1,4 @@
 """Payments (AR receipts/AP payments) endpoints."""
-from __future__ import annotations
-
 from decimal import Decimal
 from uuid import UUID
 
@@ -9,6 +7,7 @@ from sqlmodel import Session, select
 
 from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
+from src.core.rate_limiter import API_READ_RATE_LIMIT, API_WRITE_RATE_LIMIT, limiter
 from src.models import (
     Account,
     BankAccount,
@@ -26,6 +25,7 @@ router = APIRouter(tags=["payments"])
 
 
 @router.post("/payments", response_model=PaymentRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def create_payment(
     payload: PaymentCreate,
     request: Request,
@@ -125,6 +125,7 @@ def create_payment(
 
 
 @router.get("/payments", response_model=list[PaymentRead])
+@limiter.limit(API_READ_RATE_LIMIT)
 def list_payments(
     request: Request,
     session: Session = Depends(get_db),
@@ -201,16 +202,18 @@ def _apply_allocations(
         if not invoice or invoice.company_id != company_id:
             continue
 
-        total_allocated = sum(
+        # Sum existing allocations for this invoice (excluding current one)
+        existing_allocated = sum(
             Decimal(str(a.get("amount", 0)))
             for a in (invoice.allocated_to or [])
             if a.get("invoice_id") == invoice_id
-        ) + alloc_amount
+        )
+        total_allocated = existing_allocated + alloc_amount
 
         if total_allocated >= invoice.total:
             invoice.status = InvoiceStatus.PAID
         elif total_allocated > 0:
-            invoice.status = InvoiceStatus.ISSUED  # partially paid, keep issued
+            invoice.status = InvoiceStatus.ISSUED
 
         if not invoice.allocated_to:
             invoice.allocated_to = []

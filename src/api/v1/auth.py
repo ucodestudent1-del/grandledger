@@ -1,8 +1,8 @@
-"""Authentication endpoints: signup, login, refresh, logout, me, google, password reset, email verification."""
 from datetime import timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
 from src.config import settings
@@ -14,6 +14,7 @@ from src.core.security import (
     create_refresh_token,
     decode_refresh_token,
     get_password_hash,
+    verify_csrf_token,
     verify_password,
 )
 from src.core.validation import validate_company_slug, validate_email, validate_password_strength
@@ -32,6 +33,18 @@ from src.schemas import (
 )
 
 router = APIRouter(tags=["auth"])
+
+
+def verify_csrf(request: Request) -> None:
+    """Verify CSRF token for state-changing operations."""
+    if settings.ENVIRONMENT == "testing":
+        return
+    csrf_token = request.headers.get("X-CSRF-Token")
+    cookie_token = request.cookies.get("csrf_token")
+    if not verify_csrf_token(csrf_token, cookie_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token mismatch"
+        )
 
 _signup_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "5/minute"
 _login_limit = "1000/minute" if settings.ENVIRONMENT == "testing" else "10/minute"

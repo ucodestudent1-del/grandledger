@@ -13,8 +13,10 @@ export interface ApiError extends Error {
 class ApiClient {
   private baseURL: string
   private token: string | null = null
+  private csrfToken: string | null = null
   private isRefreshing = false
   private refreshSubscribers: ((token: string) => void)[] = []
+  private csrfInitialized = false
 
   constructor(baseURL: string) {
     this.baseURL = baseURL
@@ -29,11 +31,6 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.token = token
-    if (token) {
-      localStorage.setItem("access_token", token)
-    } else {
-      localStorage.removeItem("access_token")
-    }
   }
 
   getToken(): string | null {
@@ -42,6 +39,39 @@ class ApiClient {
       return localStorage.getItem("access_token")
     }
     return null
+  }
+
+  async initCSRF(): Promise<void> {
+    if (this.csrfInitialized) return
+    if (typeof window === "undefined") return
+
+    try {
+      const response = await fetch(`${this.baseURL || ""}/api/v1/auth/csrf-token`, {
+        method: "GET",
+        credentials: "include",
+      })
+      if (response.ok) {
+        const data = await response.json()
+        this.csrfToken = data.csrf_token
+      }
+    } catch {
+      // CSRF token fetch failed; requests will still work but may be blocked by CSRF middleware
+    }
+    this.csrfInitialized = true
+  }
+
+  private getCSRFHeader(): Record<string, string> {
+    const headers: Record<string, string> = {}
+    if (this.csrfToken) {
+      headers["X-CSRF-Token"] = this.csrfToken
+    }
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/)
+      if (match && match[1]) {
+        headers["X-CSRF-Token"] = match[1]
+      }
+    }
+    return headers
   }
 
   private getHeaders(customHeaders?: HeadersInit): Record<string, string> {
@@ -112,7 +142,7 @@ class ApiClient {
     try {
       const response = await fetch(this.buildURL("/auth/refresh"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.getCSRFHeader() },
         body: JSON.stringify({ refresh_token: refreshToken }),
       })
 
@@ -144,9 +174,36 @@ class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    // Initialize CSRF token on first request
+    if (!this.csrfInitialized) {
+      await this.initCSRF()
+    }
+
+    const isStateChanging = options.method && !["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase())
+    const mergedHeaders: Record<string, string> = {}
+
+    // Add CSRF token for state-changing requests
+    if (isStateChanging) {
+      Object.assign(mergedHeaders, this.getCSRFHeader())
+    }
+
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => {
+          mergedHeaders[key] = value
+        })
+      } else if (Array.isArray(options.headers)) {
+        for (const [key, value] of options.headers) {
+          mergedHeaders[key] = value
+        }
+      } else {
+        Object.assign(mergedHeaders, options.headers)
+      }
+    }
+
     const response = await fetch(this.buildURL(endpoint), {
       ...options,
-      headers: this.getHeaders(options.headers),
+      headers: { ...this.getHeaders(), ...mergedHeaders },
     })
 
     return this.handleResponse<T>(response, endpoint, options)

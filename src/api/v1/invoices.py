@@ -1,6 +1,4 @@
 """Invoices (AR) endpoints."""
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -10,6 +8,7 @@ from sqlmodel import Session, select
 
 from src.core.middleware import get_company_id, get_db
 from src.core.pagination import get_page_params, paginate_query
+from src.core.rate_limiter import API_READ_RATE_LIMIT, API_WRITE_RATE_LIMIT, limiter
 from src.models import (
     Account,
     Contact,
@@ -25,6 +24,7 @@ router = APIRouter(tags=["invoices"])
 
 
 @router.post("/invoices", response_model=InvoiceRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def create_invoice(
     payload: InvoiceCreate,
     request: Request,
@@ -93,6 +93,7 @@ def create_invoice(
 
 
 @router.get("/invoices", response_model=list[InvoiceRead])
+@limiter.limit(API_READ_RATE_LIMIT)
 def list_invoices(
     request: Request,
     session: Session = Depends(get_db),
@@ -189,6 +190,7 @@ def update_invoice(
 
 
 @router.post("/invoices/{invoice_id}/issue", response_model=InvoiceRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def issue_invoice(
     invoice_id: UUID,
     request: Request,
@@ -264,6 +266,7 @@ def issue_invoice(
 
 
 @router.post("/invoices/{invoice_id}/void", response_model=InvoiceRead)
+@limiter.limit(API_WRITE_RATE_LIMIT)
 def void_invoice(
     invoice_id: UUID,
     request: Request,
@@ -276,6 +279,10 @@ def void_invoice(
         raise HTTPException(status_code=404, detail="Invoice not found")
     if invoice.status in (InvoiceStatus.VOID, InvoiceStatus.PAID):
         raise HTTPException(status_code=400, detail="Cannot void this invoice")
+
+    # Check if invoice has any payments allocated
+    if invoice.allocated_to and len(invoice.allocated_to) > 0:
+        raise HTTPException(status_code=400, detail="Cannot void an invoice with allocated payments")
 
     invoice.status = InvoiceStatus.VOID
     session.add(invoice)

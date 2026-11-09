@@ -1,7 +1,8 @@
-"""Security utilities: password hashing, JWT token management."""
+"""Security utilities: password hashing, JWT token management, CSRF."""
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
 from uuid import UUID
 
 import bcrypt
@@ -89,3 +90,15 @@ def generate_token_pair(
     access = create_access_token(subject=str(user_id), company_id=company_id, role=role)
     refresh = create_refresh_token(subject=str(user_id), company_id=company_id, role=role)
     return access, refresh
+
+
+def generate_csrf_token() -> str:
+    """Generate a CSRF token for double-submit cookie protection."""
+    return token_urlsafe(32)
+
+
+def verify_csrf_token(token: str, expected: str) -> bool:
+    """Verify a CSRF token against the expected value."""
+    if not token or not expected:
+        return False
+    return token == expected
